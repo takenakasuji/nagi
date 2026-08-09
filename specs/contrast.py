@@ -74,10 +74,12 @@ CHECKS = [
     ("ダーク accent     on bg", "#0A84FF", "#1C1C1E", 4.5),
     ("ダーク accent     on hero-from", "#0A84FF", "#16202B", 4.5),
     ("ダーク 白         on accent-fill", "#FFFFFF", "#0A6ADF", 4.5),
-    # hover 状態。secondary は hover で塗りボタンになるので、上の accent-fill の
-    # 行と同じ組み合わせに帰着する（新しい色を増やさない）。
+    # hover 状態。secondary は hover で --bg を敷くので accent on bg に帰着するが、
+    # 「上の行と同じだから」で済ませると読む側が追えないので明示的に並べる。
     ("ライト 白         on primary hover", "#FFFFFF", LIGHT_PRIMARY_HOVER, 4.5),
     ("ダーク 白         on primary hover", "#FFFFFF", DARK_PRIMARY_HOVER, 4.5),
+    ("ライト accent     on secondary hover", "#0060DF", "#FFFFFF", 4.5),
+    ("ダーク accent     on secondary hover", "#0A84FF", "#1C1C1E", 4.5),
 ]
 
 # 却下した値。再導入されていないことを確かめるための記録。
@@ -91,6 +93,11 @@ REJECTED = [
     # 同色の accent 文字とのコントラストが 4.5 を割る（安静時が 4.51 しかないため）。
     ("accent 8% ティント上の accent 文字は不足", "#0A84FF", mix("#0A84FF", 0.08, "#16202B"), 4.5),
 ]
+
+# コントラストでは測れないが記録しておく却下案:
+# secondary の hover を accent-fill の塗り＋白文字にする案は 5.62 / 5.07 で
+# 数値上は通るが、隣の primary の安静時と画素単位で同一になり主従が消える。
+# 数値だけ見て再導入しないこと。
 
 
 def main() -> int:
