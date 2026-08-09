@@ -343,8 +343,8 @@ pre {
 /* モックが乗る面。窓は .hero ではなく .showcase の中にあり、この面が単色だと
    backdrop-filter が視覚的に何もしない（ライトでは白地に白い窓になる）。
    ヒーローの下端 --hero-to から続けて、窓が乗る帯を --hero-from で塗る。
-   specs/contrast.py はこの帯の上で材質を合成した色（#F9FBFD / #2E3136）で
-   測っているので、この背景がその前提を成立させている。 */
+   specs/contrast.py は材質を --hero-from の上で合成した色で測っているので、
+   この背景がその前提を成立させている（帯は窓の上下端を覆う必要がある）。 */
 .showcase {
   background: linear-gradient(
     180deg,
