@@ -26,16 +26,36 @@ enum CaptureKeyBinding {
         )
     }
 
+    /// A bare Escape: key code 53 with nothing but the ignorable flags on it.
+    ///
+    /// Escape is **not** a `CaptureCommand` and is not handled here — the hidden
+    /// `.cancelAction` button in `CaptureView` takes it. `CapturePanel` only has to
+    /// recognise it so it can step aside while an IME conversion is in flight; see
+    /// the Escape rule in `CLAUDE.md`.
+    static func isBareEscape(_ event: NSEvent) -> Bool {
+        isBareEscape(keyCode: event.keyCode, modifiers: event.modifierFlags)
+    }
+
+    static func isBareEscape(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        keyCode == 53 && significantModifiers(modifiers).isEmpty
+    }
+
+    /// CapsLock, Fn and the numeric-pad flag ride along on unrelated keys and must
+    /// not change what a chord means.
+    private static func significantModifiers(
+        _ modifiers: NSEvent.ModifierFlags
+    ) -> NSEvent.ModifierFlags {
+        modifiers
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad])
+    }
+
     static func command(
         characters: String?,
         keyCode: UInt16,
         modifiers: NSEvent.ModifierFlags
     ) -> CaptureCommand? {
-        // CapsLock, Fn and the numeric-pad flag ride along on unrelated keys and
-        // must not change what a chord means.
-        let mods = modifiers
-            .intersection(.deviceIndependentFlagsMask)
-            .subtracting([.capsLock, .function, .numericPad])
+        let mods = significantModifiers(modifiers)
 
         guard mods.contains(.command) else { return nil }
 

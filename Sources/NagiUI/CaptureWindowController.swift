@@ -12,19 +12,39 @@ final class CapturePanel: NSPanel {
     /// true consumes the event.
     var onCommand: ((CaptureCommand) -> Void)?
 
-    /// Claims ⌘Return / ⌘⇧S / ⌘, before the focused `NSTextView` sees them.
+    /// Claims ⌘Return / ⌘⇧S / ⌘, before the focused `NSTextView` sees them, and
+    /// steps out of Escape's way while an IME conversion is in flight.
     ///
-    /// Escape is deliberately not matched here, but it does pass through: a bare
-    /// Escape *is* a key equivalent, so `super` walks the view tree and
-    /// `CaptureView`'s hidden `.cancelAction` button consumes it. See the Escape
-    /// rule in `CLAUDE.md` — including what that costs during a Japanese
-    /// conversion.
+    /// Escape is deliberately not matched as a command, but it does pass through
+    /// here: a bare Escape *is* a key equivalent, so `super` walks the view tree
+    /// and `CaptureView`'s hidden `.cancelAction` button consumes it — which is how
+    /// Escape hides the window from anywhere, the body included.
+    ///
+    /// The button does not look at marked text, so mid-conversion that same walk
+    /// would close the window and persist the unconfirmed reading (`かんじ` instead
+    /// of `漢字`). Hence the guard: while the first responder is composing, do
+    /// **not** call `super` — that is what keeps the button from seeing the event —
+    /// and return `false` so AppKit carries on to ordinary `keyDown` dispatch,
+    /// where `interpretKeyEvents` hands Escape to the input method and the
+    /// conversion is cancelled. See the Escape rule in `CLAUDE.md`.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if CaptureKeyBinding.isBareEscape(event), isComposing { return false }
+
         if let command = CaptureKeyBinding.command(for: event) {
             onCommand?(command)
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// Whether the focused view is holding text an input method has not committed
+    /// yet.
+    ///
+    /// Both editors qualify: the body's `NagiTextView`, and the field editor behind
+    /// the filename `TextField` (SwiftUI hands focus to an `NSTextView` of its own).
+    /// `NSTextInputClient` is what they have in common.
+    private var isComposing: Bool {
+        (firstResponder as? NSTextInputClient)?.hasMarkedText() ?? false
     }
 }
 

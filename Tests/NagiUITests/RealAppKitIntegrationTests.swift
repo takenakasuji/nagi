@@ -286,13 +286,13 @@ struct RealAppKitIntegrationTests {
         #expect(escape.hits == 1)
     }
 
-    /// 実測。本文にフォーカスがあっても Escape を取るのは
-    /// `NagiTextView.cancelOperation` ではなく、`CaptureView` の隠しボタンのほう。
+    /// 実測。変換中でなければ、本文にフォーカスがあっても Escape を取るのは
+    /// `CaptureView` の隠し `.cancelAction` ボタンのほう。
     ///
     /// key equivalent の段が responder chain より先に走り、そこが素の Escape も
-    /// 受け付ける（上のテスト）。その段で `.cancelAction` ボタンが true を返して
-    /// 消費するので、本文の `cancelOperation(_:)` にはそもそも届かない。
-    @Test("本文にフォーカスがあっても Escape は .cancelAction ボタンが先に取る")
+    /// 受け付ける（上のテスト）。その段でボタンが true を返して消費するので、
+    /// 本文の responder chain にはそもそも届かない。
+    @Test("変換中でなければ Escape は .cancelAction ボタンが取り、hide 要求になる")
     func escapeInBodyIsTakenByTheCancelActionButton() {
         bootstrapAppKit()
 
@@ -307,8 +307,8 @@ struct RealAppKitIntegrationTests {
             Issue.record("NagiTextView が view tree に無い")
             return
         }
-        textView.onCancel = { log.append("cancelOperation") }
         #expect(panel.makeFirstResponder(textView))
+        #expect(textView.hasMarkedText() == false)
 
         let consumed = dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
                                 through: panel)
@@ -317,41 +317,77 @@ struct RealAppKitIntegrationTests {
         #expect(log == ["cancelAction"])
     }
 
-    /// 隠しボタンに届く前に本文へ Escape が渡った場合の受け皿。現状その経路は
-    /// 通らない（上のテスト）が、`cancelOperation` の中身自体はここで固定する。
-    @Test("本文が Escape を受け取った場合、変換中は握りつぶす")
-    func cancelOperationYieldsToTheInputMethod() {
+    /// 日本語変換中の Escape は変換の取り消しであって、下書きの中断ではない。
+    ///
+    /// `CapturePanel.performKeyEquivalent` が変換中だけ `super` を呼ばずに false を
+    /// 返すので、隠し `.cancelAction` ボタンはこの Escape を見ない。false を返すのは
+    /// 通常の `keyDown` 配送（`interpretKeyEvents` → 入力メソッド）に進ませるため。
+    @Test("本文の変換中は Escape が入力メソッドに渡り、窓は閉じない")
+    func escapeDuringBodyCompositionGoesToTheInputMethod() {
         bootstrapAppKit()
 
-        let panel = CapturePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        let textView = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        var cancelled = 0
-        textView.onCancel = { cancelled += 1 }
-        panel.contentView?.addSubview(textView)
-        panel.makeKeyAndOrderFront(nil)
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        var log: [String] = []
+        let panel = makeHostedPanel(env: env, onRequestHide: { log.append("cancelAction") })
         defer { panel.orderOut(nil) }
+
+        guard let textView = firstDescendant(NagiTextView.self, in: panel.contentView!) else {
+            Issue.record("NagiTextView が view tree に無い")
+            return
+        }
         #expect(panel.makeFirstResponder(textView))
-
-        let escape = keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: [])
-
-        // 変換中の Escape は入力メソッドのもの。窓は閉じない。
         textView.setMarkedText("かんじ",
                                selectedRange: NSRange(location: 3, length: 0),
                                replacementRange: NSRange(location: 0, length: 0))
         #expect(textView.hasMarkedText())
-        textView.keyDown(with: escape)
-        #expect(cancelled == 0)
-        #expect(textView.hasMarkedText())
 
-        // 確定後は hide 要求に変換される。
-        textView.unmarkText()
-        textView.keyDown(with: escape)
-        #expect(cancelled == 1)
+        let consumed = dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
+                                through: panel)
+
+        // key equivalent の段が降りた＝隠しボタンまで歩いていない。
+        #expect(consumed == false)
+        #expect(log.isEmpty)
+        // 変換は生きたまま（テスト環境には実物の入力メソッドが居ないので、
+        // ここで取り消されないのが正しい。実機では入力メソッドが取り消す）。
+        #expect(textView.hasMarkedText())
+    }
+
+    /// ファイル名欄で変換していても同じ。SwiftUI の `TextField` の first responder は
+    /// ウインドウのフィールドエディタ（`SwiftUI._SystemTextFieldFieldEditor`、実体は
+    /// `NSTextView`）なので、本文と同じ `NSTextInputClient` のガードで拾える。
+    @Test("ファイル名欄の変換中も Escape で窓は閉じない")
+    func escapeDuringFilenameCompositionGoesToTheInputMethod() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        var log: [String] = []
+        let panel = makeHostedPanel(env: env, onRequestHide: { log.append("cancelAction") })
+        defer { panel.orderOut(nil) }
+
+        guard let field = firstDescendant(NSTextField.self, in: panel.contentView!) else {
+            Issue.record("ファイル名の NSTextField が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(field))
+        guard let fieldEditor = panel.firstResponder as? NSTextView else {
+            Issue.record("フィールドエディタが first responder になっていない")
+            return
+        }
+        fieldEditor.setMarkedText("かんじ",
+                                  selectedRange: NSRange(location: 3, length: 0),
+                                  replacementRange: NSRange(location: 0, length: 0))
+        #expect(fieldEditor.hasMarkedText())
+
+        let consumed = dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
+                                through: panel)
+
+        #expect(consumed == false)
+        #expect(log.isEmpty)
+        #expect(fieldEditor.hasMarkedText())
     }
 
     @Test("本文にフォーカスがあっても ⌘Return はパネルが先に受け取り、本文には届かない")
@@ -516,7 +552,7 @@ struct RealAppKitIntegrationTests {
         )
         // 本文の書き戻し先はこれらのテストでは見ない（判定はすべて view.string）ので、
         // 束縛は定数で足りる。
-        let representable = MarkdownTextView(text: .constant(""), focusToken: nil, onCancel: {})
+        let representable = MarkdownTextView(text: .constant(""), focusToken: nil)
         let coordinator = representable.makeCoordinator()
 
         let view = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
@@ -587,6 +623,25 @@ struct RealAppKitIntegrationTests {
         #expect(editor.coordinator.textView(editor.view,
                                             doCommandBy: #selector(NSResponder.insertNewline(_:))) == false)
         #expect(editor.view.string == "- 項目")
+    }
+
+    /// 変換中の Return は変換の確定に使われる。ここで横取りすると、`かんじ` を
+    /// 確定しようとした Return が代わりに箇条書きを 1 行足してしまう。
+    @Test("変換中の Return は横取りせず、本文も書き換えない")
+    func returnDuringCompositionIsLeftToTheInputMethod() {
+        bootstrapAppKit()
+        // ガードが無ければ Core が継続を返す位置（箇条書きの行末）で変換する。
+        let editor = makeBodyEditor(text: "- 来週リリース", caret: 8)
+        editor.view.setMarkedText("かんじ",
+                                  selectedRange: NSRange(location: 3, length: 0),
+                                  replacementRange: NSRange(location: 8, length: 0))
+        #expect(editor.view.hasMarkedText())
+        #expect(editor.view.string == "- 来週リリースかんじ")
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertNewline(_:))) == false)
+        #expect(editor.view.string == "- 来週リリースかんじ")
+        #expect(editor.view.hasMarkedText())
     }
 
     @Test("リスト継続は ⌘Z で 1 手で取り消せる")

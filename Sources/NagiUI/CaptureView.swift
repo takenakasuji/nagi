@@ -71,8 +71,7 @@ public struct CaptureView: View {
         ZStack(alignment: .topLeading) {
             MarkdownTextView(
                 text: $session.body,
-                focusToken: bodyFocusToken,
-                onCancel: onRequestHide
+                focusToken: bodyFocusToken
             )
 
             if session.body.isEmpty {
@@ -148,10 +147,11 @@ public struct CaptureView: View {
     /// press would fire twice — ⌘Return would write two files.
     ///
     /// Escape is different: AppKit accepts an unmodified Escape at the
-    /// key-equivalent stage, which runs before the responder chain, so this
-    /// button takes it even while the body has focus and
-    /// `NagiTextView.cancelOperation` never runs. Measured; see `CLAUDE.md` for
-    /// the consequence during a Japanese conversion.
+    /// key-equivalent stage, which runs before the responder chain, so this button
+    /// takes it even while the body has focus. Measured. The one exception is an
+    /// IME conversion in flight: this button cannot see marked text, so
+    /// `CapturePanel.performKeyEquivalent` declines the event before `super` can
+    /// walk down here. See the Escape rule in `CLAUDE.md`.
     private var keyboardShortcuts: some View {
         Button("") { onRequestHide() }
             .keyboardShortcut(.cancelAction)

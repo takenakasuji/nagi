@@ -3,25 +3,16 @@ import NagiCore
 import SwiftUI
 
 /// The capture window's text view.
-final class NagiTextView: NSTextView {
-    /// Escape, outside an IME conversion.
-    ///
-    /// **Not currently reached.** This was written on the assumption that a bare
-    /// Escape is not a key equivalent and so travels the responder chain. It is:
-    /// AppKit runs the key-equivalent stage first and accepts an unmodified
-    /// Escape, and `CaptureView`'s hidden `.cancelAction` button consumes it
-    /// there — measured, see `CLAUDE.md`. Kept because the guard below is the
-    /// only thing in the app that protects a Japanese conversion from Escape, and
-    /// removing it would erase the record of what still needs deciding.
-    var onCancel: (() -> Void)?
-
-    override func cancelOperation(_ sender: Any?) {
-        // While Japanese text is being converted, Escape belongs to the input
-        // method — it cancels the conversion, not the note.
-        guard !hasMarkedText() else { return }
-        onCancel?()
-    }
-}
+///
+/// Deliberately behaviour-free. It exists so the body editor can be found by type
+/// — in `updateNSView`, and in the tests that reach into the hosted view tree.
+///
+/// In particular it does **not** handle Escape. A bare Escape never reaches the
+/// responder chain: AppKit runs the key-equivalent stage first, where either the
+/// hidden `.cancelAction` button takes it or `CapturePanel` declines it on the
+/// input method's behalf. An override here would be dead code. See the Escape rule
+/// in `CLAUDE.md`.
+final class NagiTextView: NSTextView {}
 
 /// Applies Markdown colouring to a text view's storage.
 ///
@@ -97,14 +88,12 @@ struct MarkdownTextView: NSViewRepresentable {
     /// only on a token it has not honoured yet, so asking twice for the same
     /// field still works.
     var focusToken: UUID?
-    var onCancel: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NagiTextView(frame: .zero)
         textView.delegate = context.coordinator
-        textView.onCancel = onCancel
 
         textView.isRichText = false
         textView.allowsUndo = true
@@ -149,7 +138,6 @@ struct MarkdownTextView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NagiTextView else { return }
         context.coordinator.parent = self
-        textView.onCancel = onCancel
 
         // Only write back when the model changed underneath us — saving,
         // stashing, discarding, or restoring a stash. Assigning on every

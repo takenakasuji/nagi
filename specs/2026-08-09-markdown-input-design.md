@@ -161,9 +161,9 @@ representable は受け取ったトークンが前回と違えば `makeFirstResp
 
 **⌘Return / ⌘⇧S / ⌘,** — `CapturePanel.performKeyEquivalent` はウィンドウが first responder より先に見るので、中身が `NSTextView` に変わっても無関係。変更しない。
 
-**Escape** — `.cancelAction` に届く、という見立ては当たったが、経路の見立ては外れた。実測: 素の Esc は key equivalent の段（responder chain より**先**）で受け付けられ、`NSHostingView` の中の `.cancelAction` ボタンがそこで消費する。`StandardKeyBinding.dict` 経由の `cancelOperation:` までは降りてこない。テストは `RealAppKitIntegrationTests` にある。
+**Escape** — `.cancelAction` に届く、という見立ては当たったが、経路の見立ては外れた。実測: 素の Esc は key equivalent の段（responder chain より**先**）で受け付けられ、`NSHostingView` の中の `.cancelAction` ボタンがそこで消費する。`StandardKeyBinding.dict` 経由の `cancelOperation:` までは降りてこない。したがって `NagiTextView` に `cancelOperation` の override は**置かない**（置いても死にコード）。テストは `RealAppKitIntegrationTests` にある。
 
-**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc は積み残し**: `.cancelAction` ボタンは変換中かどうかを見ないので、上の経路のままだと変換中の Esc で窓が閉じる。`NagiTextView.cancelOperation` の `hasMarkedText()` ガードは現状そこに届かない。扱いは未決。
+**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc も渡す**: `.cancelAction` ボタンは変換中かどうかを見ないので、そのままだと変換中の Esc で窓が閉じ、読みのまま（`漢字` ではなく `かんじ`）が下書きに残る。`CapturePanel.performKeyEquivalent` が、素の Esc かつ first responder が `hasMarkedText()` のときだけ `super` を呼ばずに `false` を返す。`super` を呼ばないので隠しボタンはこの Esc を見ず、`false` を返すので通常の `keyDown` 配送に進み、`interpretKeyEvents` から入力メソッドへ渡って変換が取り消される。判定は `firstResponder as? NSTextInputClient` で、本文の `NagiTextView` とファイル名欄のフィールドエディタ（SwiftUI の `_SystemTextFieldFieldEditor`）の両方を拾う。
 
 **下書きの永続化** — `AppEnvironment.hideCaptureWindow()` のまま。今回の変更は一切触れない。
 
@@ -177,6 +177,7 @@ Core（ウィンドウ不要、既存 88 本と同じ速さ）:
 `RealAppKitIntegrationTests`（要ウィンドウサーバ）:
 
 - Esc が `hideCaptureWindow()` に届く
+- 変換中の Esc は key equivalent の段で降り、窓が閉じない（本文・ファイル名欄の両方）
 - ⌘Return がまだ `save()` に届く
 - リスト行で Tab がインデントする
 

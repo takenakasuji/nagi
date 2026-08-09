@@ -78,10 +78,35 @@ struct CaptureKeyBindingTests {
         #expect(command(",", 43, []) == nil)
     }
 
-    @Test("Esc はここでは扱わない（IME の変換取り消しを壊さないため）")
+    @Test("Esc はコマンドにしない（窓を閉じるのは .cancelAction ボタンの仕事）")
     func escapeIsNotHandledHere() {
         #expect(command("\u{1b}", 53, []) == nil)
         #expect(command("\u{1b}", 53, [.command]) == nil)
+    }
+
+    // MARK: 素の Esc の見分け
+
+    /// `CapturePanel` が変換中に身を引くかどうかの判定材料。修飾つきの Esc まで
+    /// 巻き込むと、⌘Esc などが入力メソッド任せになって窓に届かなくなる。
+    @Test("修飾なしの Esc だけを素の Esc と見なす")
+    func bareEscapeIsRecognised() {
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: []))
+        // CapsLock / Fn が乗っていても素の Esc のまま。
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: [.capsLock]))
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: [.function]))
+
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: [.command]) == false)
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: [.shift]) == false)
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 53, modifiers: [.option]) == false)
+    }
+
+    @Test("Esc 以外のキーは素の Esc ではない")
+    func otherKeysAreNotBareEscape() {
+        // 修飾なしの Return / Tab / ふつうの文字。ここを取りこぼすと、変換中に
+        // すべてのキーが key equivalent の段で捨てられる。
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 36, modifiers: []) == false)
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 48, modifiers: []) == false)
+        #expect(CaptureKeyBinding.isBareEscape(keyCode: 0, modifiers: []) == false)
     }
 
     // MARK: incidental flags
