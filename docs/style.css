@@ -1,0 +1,111 @@
+/* ==========================================================================
+   Nagi 配布サイト
+   1. トークン  2. リセット  3. タイポグラフィ  4. レイアウト
+   5. ヒーローと CTA  6. 入力窓のモック  7. フォーカスとモーション
+   ========================================================================== */
+
+/* 1. トークン ------------------------------------------------------------ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg:              #FFFFFF;
+  --bg-subtle:       #F5F5F7;
+  --label:           #1D1D1F;
+  --label-secondary: #68686D;
+  --separator:       rgba(0, 0, 0, .10);
+  --accent:          #0060DF;
+  --accent-fill:     #0060DF;
+  --accent-on-fill:  #FFFFFF;
+  --material:        rgba(255, 255, 255, .72);
+  --material-edge:   rgba(0, 0, 0, .10);
+  --hero-from:       #EAF1F8;
+  --hero-to:         #FFFFFF;
+  --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .13);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+               "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --step--1: .875rem;   /* 14px 補足 */
+  --step-0:  1.0625rem; /* 17px 本文 */
+  --step-1:  1.375rem;  /* 22px h3 */
+  --step-2:  2rem;      /* 32px h2 */
+  --step-3:  3rem;      /* 48px h1 */
+
+  --wrap: 60rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:              #1C1C1E;
+    --bg-subtle:       #000000;
+    --label:           #F5F5F7;
+    --label-secondary: #A1A1A6;
+    --separator:       rgba(255, 255, 255, .14);
+    --accent:          #0A84FF;
+    --accent-fill:     #0A6ADF;
+    --material:        rgba(58, 58, 60, .66);
+    --material-edge:   rgba(255, 255, 255, .14);
+    --hero-from:       #16202B;
+    --hero-to:         #1C1C1E;
+    --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .55);
+  }
+}
+
+/* 2. リセット ------------------------------------------------------------ */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
+  font-weight: 400;
+  line-height: 1.75;
+  color: var(--label);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+svg { display: block; max-width: 100%; }
+ul, ol { list-style: none; padding: 0; }
+
+a {
+  color: var(--accent);
+  text-underline-offset: .2em;
+}
+
+/* 3. タイポグラフィ ------------------------------------------------------ */
+
+h1, h2, h3 {
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: .01em;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(2.25rem, 1.5rem + 3.2vw, var(--step-3)); font-weight: 700; }
+h2 { font-size: clamp(1.625rem, 1.2rem + 1.9vw, var(--step-2)); }
+h3 { font-size: var(--step-1); }
+
+p { text-wrap: pretty; }
+
+code, kbd, pre { font-family: var(--font-mono); }
+code { font-size: .9375em; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  margin-inline: .0625em;
+  padding: .1em .45em;
+  border: 1px solid var(--separator);
+  border-bottom-width: 2px;
+  border-radius: .375em;
+  background: var(--bg);
+  font-size: .8125em;
+  font-weight: 500;
+  line-height: 1.7;
+  text-align: center;
+  white-space: nowrap;
+}
