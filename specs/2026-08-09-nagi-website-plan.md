@@ -589,7 +589,10 @@ h3 { font-size: var(--step-1); }
 p { text-wrap: pretty; }
 
 code, kbd, pre { font-family: var(--font-mono); }
-code { font-size: .9375em; }
+
+/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.brew）の中に
+   入ると em が掛かって 13.1px まで落ちる。max() で 14px を床にする。 */
+code { font-size: max(var(--step--1), .9375em); }
 
 kbd {
   display: inline-block;
@@ -933,8 +936,17 @@ git commit -m "サイトのレイアウト（セクション、カード、表�
 }
 
 @media (hover: hover) {
-  .btn--primary:hover   { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
-  .btn--secondary:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .btn--primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
+
+  /* secondary は hover で塗りボタンになる。背景を accent でティントする案は
+     使えない — ダークの安静時が 4.51:1 しかなく、同じ色相を 8% 重ねただけで
+     4.11:1 まで落ちる（specs/contrast.py の却下リストに記録）。塗りに変えれば
+     白文字 5.62:1 / 5.07:1 で、既に測ってある組み合わせに帰着する。 */
+  .btn--secondary:hover {
+    background: var(--accent-fill);
+    color: var(--accent-on-fill);
+    box-shadow: inset 0 0 0 1px var(--accent-fill);
+  }
 }
 ```
 

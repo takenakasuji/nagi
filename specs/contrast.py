@@ -38,10 +38,20 @@ def over(fg: str, alpha: float, bg: str) -> str:
     return "#%02X%02X%02X" % tuple(round(alpha * f[i] + (1 - alpha) * b[i]) for i in range(3))
 
 
+def mix(a: str, ratio: float, b: str) -> str:
+    """CSS の color-mix(in srgb, a <ratio>%, b) と同じ計算。"""
+    return over(a, ratio, b)
+
+
 # --- トークン（docs/style.css と一致させること） ---------------------------
 
 LIGHT_MATERIAL = over("#FFFFFF", 0.72, "#EAF1F8")  # -> #F9FBFD
 DARK_MATERIAL = over("#3A3A3C", 0.66, "#16202B")  # -> #2E3136
+
+# hover の色も測る。トークンだけ測っていると color-mix() で作った状態が
+# 素通りする（実際、ダークの secondary hover が 4.2:1 まで落ちていた）。
+LIGHT_PRIMARY_HOVER = mix("#0060DF", 0.88, "#000000")
+DARK_PRIMARY_HOVER = mix("#0A6ADF", 0.88, "#000000")
 
 # (説明, 前景, 背景, 必要な比)
 CHECKS = [
@@ -64,6 +74,10 @@ CHECKS = [
     ("ダーク accent     on bg", "#0A84FF", "#1C1C1E", 4.5),
     ("ダーク accent     on hero-from", "#0A84FF", "#16202B", 4.5),
     ("ダーク 白         on accent-fill", "#FFFFFF", "#0A6ADF", 4.5),
+    # hover 状態。secondary は hover で塗りボタンになるので、上の accent-fill の
+    # 行と同じ組み合わせに帰着する（新しい色を増やさない）。
+    ("ライト 白         on primary hover", "#FFFFFF", LIGHT_PRIMARY_HOVER, 4.5),
+    ("ダーク 白         on primary hover", "#FFFFFF", DARK_PRIMARY_HOVER, 4.5),
 ]
 
 # 却下した値。再導入されていないことを確かめるための記録。
@@ -73,6 +87,9 @@ REJECTED = [
     ("#6E6E73 はグラデ上端で不足", "#6E6E73", "#EAF1F8", 4.5),
     ("#86868B（tertiary）は白地で不足", "#86868B", "#FFFFFF", 4.5),
     ("accent をダークの材質に文字で乗せると不足", "#0A84FF", DARK_MATERIAL, 4.5),
+    # 却下した hover 案: ダークで accent を 8% ティントすると背景が青寄りになり、
+    # 同色の accent 文字とのコントラストが 4.5 を割る（安静時が 4.51 しかないため）。
+    ("accent 8% ティント上の accent 文字は不足", "#0A84FF", mix("#0A84FF", 0.08, "#16202B"), 4.5),
 ]
 
 
