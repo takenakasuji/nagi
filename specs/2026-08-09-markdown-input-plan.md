@@ -49,28 +49,31 @@
 - Consumes: なし
 - Produces: Task 7 が読む「既定の Tab 挙動」の確定値
 
-- [ ] **Step 1: 現在の main の状態でアプリをビルドして起動する**
+- [x] **Step 1: 現在の main の状態でアプリをビルドして起動する**
 
 ```bash
 pkill -f "Nagi.app/Contents/MacOS/Nagi"; ./scripts/build-app.sh && open build/Nagi.app
 ```
 
-- [ ] **Step 2: ホットキー（⌥Space）で窓を出し、本文に文字を打ってから Tab を押す**
+- [x] **Step 2: ホットキー（⌥Space）で窓を出し、本文に文字を打ってから Tab を押す**
 
 観察するのは 1 点だけ。
 
 - **(A)** 本文にタブ文字（または空白）が入る
 - **(B)** フォーカスがファイル名欄（または他のコントロール）へ移る
 
-- [ ] **Step 3: 結果をこの節に書き込む**
+手動観察ではなく、実 AppKit を組み立てるテストで確認した（`CaptureWindowController` + `AppEnvironment` を実パネル上に構築し、本文の `NSTextView` に Tab の `NSEvent` を `keyDown(with:)` で送る）。
+
+- [x] **Step 3: 結果をこの節に書き込む**
 
 下の行を実際の結果で置き換える。
 
 ```
-確認結果: （A または B）／確認日: 2026-08-__
+確認結果: A／確認日: 2026-08-09
+本文の NSTextView に "hello" と入れて Tab を送ったところ string が "hello\t" に変わり（env.session.body も同じく "hello\t" に同期）、panel.firstResponder は Tab の前後で SwiftUI.PlatformTextView のまま変化しなかった。つまり Tab は本文にタブ文字を挿入するだけで、フォーカス移動は起きない。
 ```
 
-- [ ] **Step 4: アプリを終了してコミット**
+- [x] **Step 4: アプリを終了してコミット**
 
 ```bash
 pkill -f "Nagi.app/Contents/MacOS/Nagi"
