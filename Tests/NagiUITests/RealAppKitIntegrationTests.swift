@@ -210,6 +210,18 @@ struct RealAppKitIntegrationTests {
         return panel
     }
 
+    /// SwiftUI に更新を 1 周させる —— つまり `updateNSView` を走らせる。
+    ///
+    /// `変換中に退避しても、退避した本文がエディタに蘇らない` が、この計器が実際に
+    /// `updateNSView` を叩けていることの証拠になる（あそこの書き戻しは
+    /// `updateNSView` でしか起きない）。逆にそれが無いと、更新パスが 1 度も走らない
+    /// ために通っているだけのテストと区別できない。
+    private func runUpdatePass(_ panel: CapturePanel) {
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    }
+
     private func firstDescendant<T: NSView>(_ type: T.Type, in view: NSView) -> T? {
         if let hit = view as? T { return hit }
         for subview in view.subviews {
@@ -841,8 +853,13 @@ struct RealAppKitIntegrationTests {
 
     /// 上の信号が本文エディタに実際に繋がっていること。ここが外れると
     /// `NagiTextView` は正しく報せているのに誰も聞いていない、になる。
-    @Test("本文エディタには変換の報せ先が繋がっている")
-    func theBodyEditorListensForComposition() {
+    ///
+    /// 繋がっている「先」まで見るのが肝で、`onCompositionChange != nil` では
+    /// 何もしない closure が刺さっていても通ってしまう。`isBodyComposing` が
+    /// `CaptureUIState` にあるのはこれを外から見るため——プレースホルダの条件
+    /// （`session.body.isEmpty && !ui.isBodyComposing`）がそのままこの値を読む。
+    @Test("本文の変換状態が CaptureUIState まで届く")
+    func compositionReachesTheUIState() {
         bootstrapAppKit()
 
         let (env, cleanUp) = makeScratchEnvironment()
@@ -855,7 +872,89 @@ struct RealAppKitIntegrationTests {
             Issue.record("NagiTextView が view tree に無い")
             return
         }
-        #expect(textView.onCompositionChange != nil)
+        #expect(panel.makeFirstResponder(textView))
+        #expect(env.ui.isBodyComposing == false)
+
+        textView.setMarkedText("かんじ",
+                               selectedRange: NSRange(location: 3, length: 0),
+                               replacementRange: NSRange(location: 0, length: 0))
+        // ここが本題: 本文は空のままなのに、プレースホルダは退く。
+        #expect(env.session.body.isEmpty)
+        #expect(env.ui.isBodyComposing)
+
+        // 入力メソッドが変換を捨てた（空の setMarkedText）。プレースホルダは戻る。
+        textView.setMarkedText("",
+                               selectedRange: NSRange(location: 0, length: 0),
+                               replacementRange: textView.markedRange())
+        #expect(env.ui.isBodyComposing == false)
+
+        // 確定の経路も見る。ここは `unmarkText` ではなく `textDidChange` が拾う。
+        textView.setMarkedText("かんじ",
+                               selectedRange: NSRange(location: 3, length: 0),
+                               replacementRange: NSRange(location: 0, length: 0))
+        #expect(env.ui.isBodyComposing)
+        textView.insertText("漢字", replacementRange: textView.markedRange())
+        #expect(env.ui.isBodyComposing == false)
+        #expect(env.session.body == "漢字")
+    }
+
+    /// 変換中の ⌘⇧S。`CapturePanel.performKeyEquivalent` は responder chain より先に
+    /// 走るので、変換中でもここに届く（`本文の変換中は Escape が入力メソッドに渡り、
+    /// 窓は閉じない` がその配送を実測している）。`session.stash()` は本文を退避一覧へ
+    /// 移してバッファを空にするので、**binding だけ**が外から差し替わる。
+    ///
+    /// ここで `updateNSView` が「変換中だから」とだけ見て降りると、退避したはずの
+    /// 本文がエディタに残り、変換の確定と同時に現在の下書きとして復活する
+    /// ——退避一覧とエディタの両方に同じメモが残り、続けて ⌘Return を押せば
+    /// 二重のファイルが書かれる。
+    @Test("変換中に退避しても、退避した本文がエディタに蘇らない")
+    func stashDuringCompositionDoesNotResurrectTheDraft() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        guard let textView = firstDescendant(NagiTextView.self, in: panel.contentView!) else {
+            Issue.record("NagiTextView が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(textView))
+
+        // 打った本文が binding まで届いていること（届いていなければ以降が測れない）。
+        textView.insertText("既存", replacementRange: NSRange(location: 0, length: 0))
+        runUpdatePass(panel)
+        #expect(env.session.body == "既存")
+
+        // 変換を始める。ここから binding は「変換中だから」正当に古い。
+        textView.setMarkedText("かんじ",
+                               selectedRange: NSRange(location: 3, length: 0),
+                               replacementRange: NSRange(location: 2, length: 0))
+        #expect(textView.string == "既存かんじ")
+        #expect(env.session.body == "既存")
+
+        // ⌘⇧S。退避一覧に移り、バッファは空になる。
+        env.stash()
+        #expect(env.session.stashes.map(\.body) == ["既存"])
+        #expect(env.session.body.isEmpty)
+
+        runUpdatePass(panel)
+
+        // 差し替えは「変換中だから古い」ではなく「外から差し替わった」。降りては
+        // いけない。
+        #expect(textView.string.isEmpty)
+        #expect(textView.hasMarkedText() == false)
+
+        // 入力メソッドが変換を確定したときの経路。marked text が無ければ
+        // `markedRange()` は {NSNotFound, 0} で、選択位置への挿入になる。
+        textView.insertText("漢字", replacementRange: textView.markedRange())
+
+        // 退避した本文が戻ってきていないこと。エディタと binding の両方で見る。
+        #expect(textView.string == "漢字")
+        #expect(env.session.body == "漢字")
+        #expect(env.session.stashes.map(\.body) == ["既存"])
     }
 
     /// 空のエディタに日本語を打ち始められること。この分岐でいちばん壊れやすい所。
@@ -888,10 +987,7 @@ struct RealAppKitIntegrationTests {
                                replacementRange: NSRange(location: 0, length: 0))
         #expect(textView.string == "かんじ")
 
-        // SwiftUI に更新を 1 周させる。
-        panel.contentView?.layoutSubtreeIfNeeded()
-        panel.displayIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        runUpdatePass(panel)
 
         #expect(textView.string == "かんじ")
         #expect(textView.hasMarkedText())

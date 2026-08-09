@@ -17,10 +17,6 @@ public struct CaptureView: View {
     /// It gets the request's token instead and makes itself first responder.
     @State private var bodyFocusToken: UUID?
 
-    /// True while an input method is composing in the body. Reported by
-    /// `NagiTextView`, because nothing else can see it.
-    @State private var isBodyComposing = false
-
     init(session: DraftSession, ui: CaptureUIState, onRequestHide: @escaping () -> Void) {
         self.session = session
         self.ui = ui
@@ -81,7 +77,7 @@ public struct CaptureView: View {
         ZStack(alignment: .topLeading) {
             MarkdownTextView(
                 text: $session.body,
-                isComposing: $isBodyComposing,
+                isComposing: $ui.isBodyComposing,
                 focusToken: bodyFocusToken
             )
 
@@ -91,7 +87,7 @@ public struct CaptureView: View {
             // word the user types, same inset, same font. For a window whose
             // primary use is "type the first word into an empty editor", that is
             // the common case, not an edge case.
-            if session.body.isEmpty && !isBodyComposing {
+            if session.body.isEmpty && !ui.isBodyComposing {
                 Text("雑に書く。整理はあとで Claude に任せる。")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.tertiary)

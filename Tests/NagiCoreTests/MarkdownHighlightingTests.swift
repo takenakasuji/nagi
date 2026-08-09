@@ -150,6 +150,14 @@ struct MarkdownInlineHighlightingTests {
     func intrawordUnderscoreIsNotEmphasis() {
         #expect(MarkdownHighlighting.spans(in: "snake_case_name").isEmpty)
         #expect(MarkdownHighlighting.spans(in: "https://a.example/a_b_c").isEmpty)
+        // 閉じ側も語中かどうかを見る。開き側だけ見ていた頃は、語の頭から始まる
+        // `_private_name` の `_private_` が強調と誤認されて記号色に落ちていた。
+        #expect(MarkdownHighlighting.spans(in: "_private_name").isEmpty)
+        // ただし諦めるのではなく読み飛ばす。CommonMark も `_a_b_` は閉じる。
+        #expect(MarkdownHighlighting.spans(in: "_a_b_") == [
+            MarkdownSpan(range: 0..<1, token: .marker),
+            MarkdownSpan(range: 4..<5, token: .marker),
+        ])
         // 直前が英数字でなければ従来どおり効く（行頭以外でも）
         #expect(MarkdownHighlighting.spans(in: "これは _強調_ です") == [
             MarkdownSpan(range: 4..<5, token: .marker),

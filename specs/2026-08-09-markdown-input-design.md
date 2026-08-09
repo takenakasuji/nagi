@@ -44,7 +44,7 @@
 | `NagiUI/MarkdownTextView.swift` | `NSViewRepresentable` + `NSTextView` サブクラス。上の 2 つを呼ぶだけ |
 | `NagiUI/MarkdownTheme.swift` | スパン種別 → `NSColor` |
 
-`CaptureView.bodyEditor` の `TextEditor` がこの `MarkdownTextView` に差し替わる。プレースホルダの `ZStack` オーバーレイは今のまま流用する。ただし出す条件は `session.body.isEmpty` だけでは足りない: 変換中は `textDidChange` が飛ばないので `body` は `""` のままで、プレースホルダが打ちかけの日本語の**上に**重なる。`NagiTextView` が `setMarkedText` / `unmarkText` から変換状態を報せ、その間は出さない。
+`CaptureView.bodyEditor` の `TextEditor` がこの `MarkdownTextView` に差し替わる。プレースホルダの `ZStack` オーバーレイは今のまま流用する。ただし出す条件は `session.body.isEmpty` だけでは足りない: 変換中は `textDidChange` が飛ばないので `body` は `""` のままで、プレースホルダが打ちかけの日本語の**上に**重なる。`NagiTextView` が `setMarkedText` / `unmarkText` から変換状態を報せ（`CaptureUIState.isBodyComposing`）、その間は出さない。
 
 **オフセットは UTF-16 で統一する。** `NSTextStorage` が UTF-16 で動くので、Core も `Range<Int>`（UTF-16 単位）で返す。日本語や絵文字が入った瞬間に `String.Index` との往復でずれるのを、境界をひとつに決めて防ぐ。
 
@@ -152,6 +152,8 @@ public enum MarkdownLineEditing {
 
 **テキストの同期。** `updateNSView` は `textView.string` と binding が食い違うときだけ書き戻す。毎回代入するとカーソルが先頭に飛ぶ。書き戻しが要るのは `DraftSession` が外から `body` を差し替えるとき、つまり保存・退避・破棄の後の `resetBuffer()` と、退避から戻す `openStash()` だけ。
 
+ただし**変換中はこの判定が使えない**。変換は `textDidChange` を飛ばさないので、`textView.string` と binding は変換中ずっと食い違う——それが正常な状態で、ここで書き戻すと打ちかけの読みが消えて日本語が打てなくなる。かといって「変換中は降りる」だけでは、変換中の ⌘⇧S（`performKeyEquivalent` は responder chain より先なので届く）で退避した本文がエディタに残り、確定と同時に現在の下書きとして復活する。そこで Coordinator は**自分が最後に binding へ渡した値**を憶えておき、変換中は `body` がその値のままかどうかで判定する: 同じなら「変換中だから古いだけ」、違えば「外から差し替わった」。後者は書き戻す（代入そのものが変換を終わらせる）。
+
 **色の塗り直し。** 変更のたびに全体を「地の色にリセット → スパンを塗る」。メモ 1 枚分なので全走査で十分速く、部分更新は ``` の開閉で状態が前後に伝播する分だけ確実に間違える。速さが問題になってから狭める。`typingAttributes` も地の色に固定して、コードの直後に打った文字が緑を引き継がないようにする。
 
 **Return / Tab。** `doCommandBy` で `insertNewline(_:)` / `insertTab(_:)` / `insertBacktab(_:)` を受け、Core に投げて `TextEdit` が返れば適用、`nil` なら `false` を返して既定に任せる。適用は `shouldChangeText(in:replacementString:)` → 置換 → `didChangeText()` の順で通す。これを通さないと ⌘Z が効かず、リスト継続が undo できない編集になる。
@@ -173,7 +175,7 @@ representable は受け取ったトークンが前回と違えば `makeFirstResp
 
 **Escape** — `.cancelAction` に届く、という見立ては当たったが、経路の見立ては外れた。実測: 素の Esc は key equivalent の段（responder chain より**先**）で受け付けられ、変換中でなければ `NSHostingView` の中の `.cancelAction` ボタンがそこで消費する。変換中は `CapturePanel.performKeyEquivalent` が `super` を呼ばずに `false` を返すため隠しボタンには届かず、通常の `keyDown` 配送 → `interpretKeyEvents` を経て入力メソッドに渡る——responder chain に届くのはこの変換中の経路だけで、その経路でも `hasMarkedText()` で即座に入力メソッドへ譲るほかない。したがって `NagiTextView` に `cancelOperation` の override は**置かない**（置いてもどちらの経路でも死にコード）。テストは `RealAppKitIntegrationTests` にある。
 
-**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc も渡す**: `.cancelAction` ボタンは変換中かどうかを見ないので、そのままだと変換中の Esc で窓が閉じ、**打ちかけの読みが黙って消える**。実測: `setMarkedText` は `textDidChange` を一度も飛ばさない（切り離した text view でも、キーパネルに載せて first responder にした text view でも同じ。同じ delegate が `insertText` と `string =` の通知は現に受け取っている）。つまり未確定の文字列は `session.body` に一度も届かず、`suspend()` にも残らない——残るのではなく、消える。`CapturePanel.performKeyEquivalent` が、素の Esc かつ first responder が `hasMarkedText()` のときだけ `super` を呼ばずに `false` を返す。`super` を呼ばないので隠しボタンはこの Esc を見ず、`false` を返すので通常の `keyDown` 配送に進み、`interpretKeyEvents` から入力メソッドへ渡って変換が取り消される。判定は `firstResponder as? NSTextInputClient` で、本文の `NagiTextView` とファイル名欄のフィールドエディタ（SwiftUI の `_SystemTextFieldFieldEditor`）の両方を拾う。
+**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc も渡す**: `.cancelAction` ボタンは変換中かどうかを見ないので、そのままだと変換中の Esc で窓が閉じ、**打ちかけの読みが黙って消える**。実測: `setMarkedText` は `textDidChange` を一度も飛ばさない（切り離した text view でも、パネルに載せて first responder にした text view でも同じ。同じ delegate が `insertText` と `string =` の通知は現に受け取っている）。測れたのは「hosted かつ first responder」までで、**キーウインドウでの測定は取れていない** —— `swift test` のバイナリはパネルを key にできない（bundle でないうえ画面ロックが activation を塞ぐ。`isKeyWindow=false`）。つまり未確定の文字列は `session.body` に一度も届かず、`suspend()` にも残らない——残るのではなく、消える。`CapturePanel.performKeyEquivalent` が、素の Esc かつ first responder が `hasMarkedText()` のときだけ `super` を呼ばずに `false` を返す。`super` を呼ばないので隠しボタンはこの Esc を見ず、`false` を返すので通常の `keyDown` 配送に進み、`interpretKeyEvents` から入力メソッドへ渡って変換が取り消される。判定は `firstResponder as? NSTextInputClient` で、本文の `NagiTextView` とファイル名欄のフィールドエディタ（SwiftUI の `_SystemTextFieldFieldEditor`）の両方を拾う。
 
 **下書きの永続化** — `AppEnvironment.hideCaptureWindow()` のまま。今回の変更は一切触れない。
 
@@ -193,7 +195,8 @@ Core（ウィンドウ不要、既存 88 本と同じ速さ）:
 - リストの 1 行目で Tab を押してもタブ文字が入らない。リストでない行では入る（`doCommand(by:)` で既定まで通して測る）
 - 最上位の ⇧Tab は本文もフォーカスも動かさない
 - ファイル名欄の Return が本文へのフォーカス要求になる
-- 変換中は `textDidChange` が飛ばない（`insertText` の対照つき）。その報せが `NagiTextView` から出ること、本文エディタが受け取っていること、そして受け取って走る更新が変換を消さないこと
+- 変換中は `textDidChange` が飛ばない（`insertText` の対照つき）。その報せが `NagiTextView` から出ること、`CaptureUIState.isBodyComposing` まで届くこと（開始・取り消し・確定の 3 経路）、そして受け取って走る更新が変換を消さないこと
+- 変換中に退避しても、退避した本文がエディタに蘇らないこと。上の「変換を消さない」と対で、書き戻しの降り方が緩すぎ／厳しすぎの両方を止める
 
 テストは日本語で命名する（既存に合わせる）。
 

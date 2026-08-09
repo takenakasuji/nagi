@@ -165,6 +165,10 @@ public enum MarkdownHighlighting {
         // CommonMark forbids intraword `_`, and it is right to: without this,
         // `snake_case_name` and half the URLs anyone pastes come out with their
         // underscores greyed down to punctuation. `*` keeps working mid-word.
+        //
+        // This is only half of it — the closing run has to be checked too, or
+        // `_private_name` still greys `_private_`: its opening `_` starts a word
+        // and passes here. `closingRun` does that half.
         if delimiter == ASCII.underscore, open > 0, isASCIIAlphanumeric(u[open - 1]) {
             return nil
         }
@@ -181,6 +185,13 @@ public enum MarkdownHighlighting {
         return (spans, close + width)
     }
 
+    /// The delimiter run that closes the span, or `nil` if the line has none.
+    ///
+    /// A run of `_` that sits inside a word cannot close, for the same reason one
+    /// cannot open: in `_private_name` the closing `_` is followed by more of the
+    /// word, and treating it as a delimiter greys `_private_` down to punctuation.
+    /// Rejected runs are skipped rather than given up on, so `_a_b_` still closes
+    /// on its last `_` — which is also what CommonMark does with it.
     private static func closingRun(
         of delimiter: UInt16,
         width: Int,
@@ -189,9 +200,12 @@ public enum MarkdownHighlighting {
     ) -> Int? {
         var i = from
         while i < u.count {
-            if u[i] == delimiter {
-                if width == 1 { return i }
-                if i + 1 < u.count, u[i + 1] == delimiter { return i }
+            if u[i] == delimiter, width == 1 || (i + 1 < u.count && u[i + 1] == delimiter) {
+                let after = i + width
+                let isIntraword = delimiter == ASCII.underscore
+                    && after < u.count
+                    && isASCIIAlphanumeric(u[after])
+                if !isIntraword { return i }
             }
             i += 1
         }

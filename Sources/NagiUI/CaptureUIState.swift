@@ -27,6 +27,19 @@ public final class CaptureUIState {
     public var focusRequest: FocusRequest?
     public var isStashListVisible = false
 
+    /// True while an input method is holding an unconfirmed reading in the body.
+    ///
+    /// Nothing else can see it: a conversion posts no `textDidChange` (measured),
+    /// so `session.body` stays at its pre-conversion value — `""` for the common
+    /// case of typing the first word into an empty window — while the reading is
+    /// on screen. The placeholder has to be driven from here or it sits on top of
+    /// what the user is typing. `NagiTextView.onCompositionChange` reports it.
+    ///
+    /// It lives here rather than in a `@State` inside `CaptureView` so a test can
+    /// assert the reporting actually arrives somewhere, instead of only that a
+    /// closure was installed.
+    public var isBodyComposing = false
+
     /// Short-lived feedback shown under the editor (e.g. "名前を入れてください").
     public var message: Message?
 

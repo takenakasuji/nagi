@@ -140,7 +140,7 @@ struct MarkdownTextView: NSViewRepresentable {
         let textView = NagiTextView(frame: .zero)
         textView.delegate = context.coordinator
         textView.onCompositionChange = { [coordinator = context.coordinator] composing in
-            coordinator.parent.isComposing = composing
+            coordinator.report(composing: composing)
         }
 
         textView.isRichText = false
@@ -173,7 +173,7 @@ struct MarkdownTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
 
-        MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
+        context.coordinator.adopt(text, in: textView)
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -185,28 +185,46 @@ struct MarkdownTextView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NagiTextView else { return }
-        context.coordinator.parent = self
+        let coordinator = context.coordinator
+        coordinator.parent = self
 
         // Only write back when the model changed underneath us — saving,
         // stashing, discarding, or restoring a stash. Assigning on every
         // keystroke would throw the caret to the front of the document.
-        //
-        // The `hasMarkedText()` half is load-bearing, and it is *not* the same
-        // defensive guard as the one in `apply`. While an input method is
-        // converting, these two disagree by design: the reading is on screen but
-        // posts no `textDidChange`, so `text` still holds the document from
-        // before the conversion started. Reaching here used to be impossible —
-        // nothing woke SwiftUI mid-conversion — but the composing flag that keeps
-        // the placeholder off the user's first word now schedules an update on
-        // every keystroke of one. Measured without this guard: type かんじ into an
-        // empty editor and the next update pass replaces it with "", cancelling
-        // the conversion. Japanese input becomes impossible.
-        if !textView.hasMarkedText(), textView.string != text {
-            MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
+        if textView.hasMarkedText() {
+            // A conversion is in flight, so `text` is out of date *by design*:
+            // `setMarkedText` posts no `textDidChange` (measured), so the reading
+            // on screen never reached the binding. Two different situations look
+            // identical from `textView.string != text` alone, and they need
+            // opposite answers:
+            //
+            //   (a) the model still holds the last value this coordinator put
+            //       there — nothing happened but the conversion. Writing back
+            //       would replace the reading with the pre-conversion document
+            //       (usually ""), cancelling the conversion; measured, it makes
+            //       Japanese input outright impossible.
+            //
+            //   (b) the model holds something else — ⌘Return, ⌘⇧S or a stash
+            //       being opened replaced it while the conversion was in flight
+            //       (`CapturePanel.performKeyEquivalent` runs ahead of the
+            //       responder chain, so those keys arrive mid-conversion). Not
+            //       writing back leaves the just-saved or just-stashed note in
+            //       the editor, and committing the conversion adopts it as the
+            //       current draft again — one note in two places, and the next
+            //       ⌘Return writes a duplicate file.
+            //
+            // Hence the comparison is against what we last pushed, not against
+            // `textView.string`, which is the one thing guaranteed to differ
+            // during a conversion.
+            if text != coordinator.syncedText {
+                coordinator.adopt(text, in: textView)
+            }
+        } else if textView.string != text {
+            coordinator.adopt(text, in: textView)
         }
 
-        if let focusToken, context.coordinator.honouredFocusToken != focusToken {
-            context.coordinator.honouredFocusToken = focusToken
+        if let focusToken, coordinator.honouredFocusToken != focusToken {
+            coordinator.honouredFocusToken = focusToken
             DispatchQueue.main.async {
                 textView.window?.makeFirstResponder(textView)
             }
@@ -218,17 +236,70 @@ struct MarkdownTextView: NSViewRepresentable {
         var parent: MarkdownTextView
         var honouredFocusToken: UUID?
 
+        /// The value of the binding the editor is known to be in sync with: the
+        /// last string this coordinator either read out of the text view or wrote
+        /// into it.
+        ///
+        /// It exists for the one case where `textView.string` cannot answer
+        /// "did the model change underneath us?" — a conversion in flight, where
+        /// the two disagree for a legitimate reason. See `updateNSView`.
+        private(set) var syncedText: String
+
         init(_ parent: MarkdownTextView) {
             self.parent = parent
+            self.syncedText = parent.text
+        }
+
+        /// Replaces the document with a value that came from the model.
+        ///
+        /// Any conversion in flight ends here, and it is the assignment inside
+        /// `replaceDocument` that ends it: measured, `textView.string = …` clears
+        /// the marked state even on a first responder with a live input context,
+        /// and posts exactly one `textDidChange` carrying the new string. Neither
+        /// of the two obvious ways to be explicit about it survives contact with
+        /// a measurement — `unmarkText()` *commits* the reading into the old
+        /// document and leaves the following assignment silent, and
+        /// `inputContext?.discardMarkedText()` does nothing at all here (measured
+        /// on a hosted first responder: `hasMarkedText()` stays true, no
+        /// notification), because a test binary has no live input session to
+        /// discard. Adding it would be code no test could hold to account, whose
+        /// most likely answer on a real machine is the input method calling
+        /// `unmarkText()` — the first problem.
+        ///
+        /// The composing flag is settled *before* the assignment on purpose.
+        /// This runs from `updateNSView`, i.e. inside a SwiftUI view update, and
+        /// otherwise the `textDidChange` the assignment posts would be what flips
+        /// it — a state change made in the middle of the pass that is reading it.
+        func adopt(_ text: String, in textView: NSTextView) {
+            publish(text: text, composing: false)
+            MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
+        }
+
+        /// Carries `NagiTextView`'s composition signal to the placeholder.
+        func report(composing: Bool) {
+            guard parent.isComposing != composing else { return }
+            parent.isComposing = composing
+        }
+
+        /// Moves the editor's state into the bindings, skipping writes that would
+        /// not change anything.
+        ///
+        /// The skipping is not an optimisation: `adopt` runs during a SwiftUI
+        /// update pass, and the `textDidChange` it provokes arrives back here. A
+        /// write of the value SwiftUI already holds would be a state change made
+        /// during a view update for no gain at all.
+        private func publish(text: String, composing: Bool) {
+            syncedText = text
+            if parent.text != text { parent.text = text }
+            report(composing: composing)
         }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            parent.text = textView.string
             // Committing a conversion goes through `insertText`, which clears the
             // marked state without calling `unmarkText()` (measured) — so this is
             // the only place that sees the end of *that* route.
-            parent.isComposing = textView.hasMarkedText()
+            publish(text: textView.string, composing: textView.hasMarkedText())
             MarkdownTextViewHighlighting.apply(to: textView)
         }
 
