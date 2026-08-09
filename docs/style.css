@@ -103,7 +103,7 @@ kbd {
   border-bottom-width: 2px;
   border-radius: .375em;
   background: var(--bg);
-  font-size: .8125em;
+  font-size: var(--step--1);
   font-weight: 500;
   line-height: 1.7;
   text-align: center;
