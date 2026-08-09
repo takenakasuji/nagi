@@ -3,21 +3,21 @@ import NagiCore
 import SwiftUI
 
 /// The capture window's text view.
-///
-/// Escape has to reach `AppEnvironment.hideCaptureWindow()`. The standard key
-/// bindings send a bare Escape to `cancelOperation(_:)` and `NSTextView` does not
-/// implement it, so it would travel up the responder chain on its own — but that
-/// is an unwritten guarantee, and the draft the user is holding depends on it.
-/// Claiming the selector here makes the route ours.
 final class NagiTextView: NSTextView {
     /// Escape, outside an IME conversion.
+    ///
+    /// **Not currently reached.** This was written on the assumption that a bare
+    /// Escape is not a key equivalent and so travels the responder chain. It is:
+    /// AppKit runs the key-equivalent stage first and accepts an unmodified
+    /// Escape, and `CaptureView`'s hidden `.cancelAction` button consumes it
+    /// there — measured, see `CLAUDE.md`. Kept because the guard below is the
+    /// only thing in the app that protects a Japanese conversion from Escape, and
+    /// removing it would erase the record of what still needs deciding.
     var onCancel: (() -> Void)?
 
     override func cancelOperation(_ sender: Any?) {
         // While Japanese text is being converted, Escape belongs to the input
-        // method — it cancels the conversion, not the note. The input context
-        // normally swallows the key long before it reaches here; this makes that
-        // guarantee ours rather than the system's.
+        // method — it cancels the conversion, not the note.
         guard !hasMarkedText() else { return }
         onCancel?()
     }
@@ -52,6 +52,37 @@ enum MarkdownTextViewHighlighting {
 
         // Otherwise a character typed straight after a code span inherits green.
         textView.typingAttributes = MarkdownTheme.bodyAttributes
+    }
+
+    /// Swaps the whole document for one that came from outside the text system —
+    /// saving, stashing, discarding, or restoring a stash, all of which leave the
+    /// window open.
+    ///
+    /// Two things have to happen that a bare `textView.string = text` does not do.
+    ///
+    /// **The undo stack has to go.** Assigning `string` bypasses
+    /// `shouldChangeText(in:replacementString:)`, so it neither registers an undo
+    /// group nor clears the ones already there — the previous document's groups
+    /// would survive into an unrelated buffer. Type a note, ⌘⇧S, then ⌘Z: either
+    /// the stashed text is resurrected into the emptied editor (where
+    /// `textDidChange` writes it straight back into the session, leaving one draft
+    /// in both the stash list and the editor), or the queued undo targets a range
+    /// past the end of the new storage and raises `NSRangeException`.
+    ///
+    /// **A conversion in flight must be ended by the assignment itself — do not
+    /// add an explicit `unmarkText()`.** Assigning `string` already clears the
+    /// marked-text state, and it posts exactly one `textDidChange` carrying the
+    /// *new* string, so the coordinator writes the right value back to the
+    /// session. `unmarkText()` does the opposite of what its name suggests: it
+    /// *commits* the composition into the old document and posts `textDidChange`
+    /// with the stale text, and the following assignment then posts nothing — so
+    /// `session.body` would be left holding the abandoned reading while the
+    /// editor shows the new document, and the next `updateNSView` would write the
+    /// stale text back over it. Measured; see the task 6 report.
+    static func replaceDocument(of textView: NSTextView, with text: String) {
+        textView.string = text
+        textView.undoManager?.removeAllActions()
+        apply(to: textView)
     }
 }
 
@@ -105,8 +136,7 @@ struct MarkdownTextView: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
 
-        textView.string = text
-        MarkdownTextViewHighlighting.apply(to: textView)
+        MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -125,8 +155,7 @@ struct MarkdownTextView: NSViewRepresentable {
         // stashing, discarding, or restoring a stash. Assigning on every
         // keystroke would throw the caret to the front of the document.
         if textView.string != text {
-            textView.string = text
-            MarkdownTextViewHighlighting.apply(to: textView)
+            MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
         }
 
         if let focusToken, context.coordinator.honouredFocusToken != focusToken {

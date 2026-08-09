@@ -140,16 +140,18 @@ public struct CaptureView: View {
         .padding(.vertical, 8)
     }
 
-    /// Escape only — and only while focus is *not* in the body.
+    /// Escape — and it wins wherever focus is, the body included.
     ///
     /// ⌘Return / ⌘⇧S / ⌘, are handled by `CapturePanel.performKeyEquivalent`,
     /// because a hidden zero-sized button does not reliably win the shortcut
     /// against the focused text view. They must NOT also be bound here, or each
     /// press would fire twice — ⌘Return would write two files.
     ///
-    /// Escape is bound here for the filename field. When the body has focus,
-    /// `NagiTextView.cancelOperation` claims it first and does not call `super`,
-    /// so the two never both fire.
+    /// Escape is different: AppKit accepts an unmodified Escape at the
+    /// key-equivalent stage, which runs before the responder chain, so this
+    /// button takes it even while the body has focus and
+    /// `NagiTextView.cancelOperation` never runs. Measured; see `CLAUDE.md` for
+    /// the consequence during a Japanese conversion.
     private var keyboardShortcuts: some View {
         Button("") { onRequestHide() }
             .keyboardShortcut(.cancelAction)

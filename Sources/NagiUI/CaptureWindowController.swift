@@ -14,10 +14,11 @@ final class CapturePanel: NSPanel {
 
     /// Claims ⌘Return / ⌘⇧S / ⌘, before the focused `NSTextView` sees them.
     ///
-    /// Escape is deliberately not handled here: it carries no modifiers, so it
-    /// is not a key equivalent, and it must stay available to the input method
-    /// for cancelling Japanese conversion. It reaches `hide()` through
-    /// `cancelOperation` on the responder chain instead.
+    /// Escape is deliberately not matched here, but it does pass through: a bare
+    /// Escape *is* a key equivalent, so `super` walks the view tree and
+    /// `CaptureView`'s hidden `.cancelAction` button consumes it. See the Escape
+    /// rule in `CLAUDE.md` — including what that costs during a Japanese
+    /// conversion.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if let command = CaptureKeyBinding.command(for: event) {
             onCommand?(command)

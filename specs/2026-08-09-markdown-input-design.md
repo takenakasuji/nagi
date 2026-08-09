@@ -98,7 +98,7 @@ public enum MarkdownHighlighting {
 
 記号のグレーは意図的にコントラストを落としている（句読点的な要素を弱めるため）。本文が読めるコントラストを持つことが要件で、記号がそこに達する必要はない。
 
-実効背景は実装後にキャプチャから採り直した（ライト `#F4F4F4` / ダーク `#2F2F2F`）。引用の本文のライト側は当初 `#6C7178` だったが、その背景で 4.47:1 と 4.5 に届かなかったため `#666B72` に落とした。
+背景は実装後に採り直した（ライト `#F4F4F4` / ダーク `#2F2F2F`）。ただしこれは**実効背景ではない**: オフスクリーンの `cacheDisplay(in:to:)` から読んだ値で、背後の合成が入らないため `.regularMaterial` の不透明フォールバックにあたる。実機の窓を明暗の下地の上で測り直す作業は未了（`specs/contrast.py` の注記を参照）。引用の本文のライト側は当初 `#6C7178` だったが、この背景で 4.47:1 と 4.5 に届かなかったため `#666B72` に落とした。合成後の背景がこれより暗くなる可能性があるぶんの余裕も見込んでいる。
 
 ## `MarkdownLineEditing`
 
@@ -161,9 +161,9 @@ representable は受け取ったトークンが前回と違えば `makeFirstResp
 
 **⌘Return / ⌘⇧S / ⌘,** — `CapturePanel.performKeyEquivalent` はウィンドウが first responder より先に見るので、中身が `NSTextView` に変わっても無関係。変更しない。
 
-**Escape** — `StandardKeyBinding.dict` で素の Esc は `cancelOperation:` に割り当たっている（`complete:` は ⌥Esc と F5）。`NSTextView` はこれを実装しないので responder chain を上がり、`NSHostingView` の中の `.cancelAction` に届く**はず**。今回いちばん壊れやすいのはここなので、実機テストで固定する。届かなければ `NagiTextView` で `cancelOperation(_:)` を実装して明示的に転送する。
+**Escape** — `.cancelAction` に届く、という見立ては当たったが、経路の見立ては外れた。実測: 素の Esc は key equivalent の段（responder chain より**先**）で受け付けられ、`NSHostingView` の中の `.cancelAction` ボタンがそこで消費する。`StandardKeyBinding.dict` 経由の `cancelOperation:` までは降りてこない。テストは `RealAppKitIntegrationTests` にある。
 
-**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。Esc も素通しして日本語変換のキャンセルに残す。
+**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc は積み残し**: `.cancelAction` ボタンは変換中かどうかを見ないので、上の経路のままだと変換中の Esc で窓が閉じる。`NagiTextView.cancelOperation` の `hasMarkedText()` ガードは現状そこに届かない。扱いは未決。
 
 **下書きの永続化** — `AppEnvironment.hideCaptureWindow()` のまま。今回の変更は一切触れない。
 
