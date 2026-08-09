@@ -21,6 +21,16 @@ public func runNotesDirectoryPicker(startingAt current: URL?) -> URL? {
     return panel.runModal() == .OK ? panel.url : nil
 }
 
+/// Opens the notes folder in Finder.
+///
+/// Creates it first: the folder is only brought into existence by the first
+/// save, and revealing a path that does not exist yet does nothing at all.
+@MainActor
+public func revealFolderInFinder(_ url: URL) {
+    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    NSWorkspace.shared.activateFileViewerSelecting([url])
+}
+
 extension CaptureWindowController: CaptureWindowPresenting {}
 
 extension HotkeyManager: GlobalHotkeyRegistering {}
@@ -34,7 +44,8 @@ public func makeProductionEnvironment() -> AppEnvironment {
         store: .defaultStore(),
         directoryPicker: { [weak preferences] in
             runNotesDirectoryPicker(startingAt: preferences?.notesDirectory)
-        }
+        },
+        folderRevealer: revealFolderInFinder
     )
 
     let window = CaptureWindowController(env: env)

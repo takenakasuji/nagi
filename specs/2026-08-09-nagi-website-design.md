@@ -36,8 +36,7 @@ nagi/
   docs/                 ← GitHub Pages の公開ルート
     index.html
     style.css
-    nagi-mark.svg       ロゴ（自作の風マーク）
-    favicon.svg
+    favicon.svg         風マーク（自作）。ロゴは index.html にインライン展開する
     .nojekyll
   specs/                ← 設計書。docs/ の外に置く（下記）
     2026-08-09-nagi-website-design.md
@@ -291,7 +290,7 @@ python3 -m http.server 8000 --directory docs
 
 1. `git init` → `.gitignore`（`.build/`、`build/`、`.DS_Store`）→ 初回コミット
 2. `LICENSE`（MIT）を追加
-3. `docs/nagi-mark.svg` — 風マークを描く
+3. `docs/favicon.svg` — 風マークを描く（ロゴは `index.html` にインライン展開するので単体ファイルは作らない）
 4. `docs/index.html` — セクション 1〜7 のマークアップ（意味づけ優先、装飾は後）
 5. `docs/style.css` — カラートークン → タイポグラフィ → レイアウト → モック → モーション の順
 6. 検証（上記 6 項目）

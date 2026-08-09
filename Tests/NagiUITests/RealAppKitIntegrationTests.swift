@@ -65,7 +65,8 @@ struct RealAppKitIntegrationTests {
         let env = AppEnvironment(
             preferences: preferences,
             store: StashStore(fileURL: scratch.appendingPathComponent("state.json")),
-            directoryPicker: { nil }
+            directoryPicker: { nil },
+            folderRevealer: { _ in }
         )
         let controller = CaptureWindowController(env: env)
         env.start(window: controller,
@@ -146,7 +147,8 @@ struct RealAppKitIntegrationTests {
         let env = AppEnvironment(
             preferences: preferences,
             store: StashStore(fileURL: scratch.appendingPathComponent("state.json")),
-            directoryPicker: { nil }
+            directoryPicker: { nil },
+            folderRevealer: { _ in }
         )
         let controller = CaptureWindowController(env: env)
         env.start(window: controller,

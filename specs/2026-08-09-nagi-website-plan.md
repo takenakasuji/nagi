@@ -34,7 +34,6 @@
 |---|---|
 | `LICENSE` | MIT ライセンス本文 |
 | `docs/.nojekyll` | 空ファイル。GitHub Pages の Jekyll ビルドを止める |
-| `docs/nagi-mark.svg` | ロゴ。`currentColor` を継承する。HTML にインライン展開して使う原本 |
 | `docs/favicon.svg` | favicon。ページの色を継承できないため、色を内蔵し `prefers-color-scheme` で切り替える |
 | `docs/index.html` | 7 セクションのマークアップ。構造と文言のすべて |
 | `docs/style.css` | 全スタイル。7 層に区切ってコメントで見出しを打つ |
@@ -119,35 +118,24 @@ git commit -m "MIT ライセンスと docs/ の土台を追加"
 SF Symbols の `wind` は Apple プラットフォーム外に再配布できないため、Web 用に自分で描く。凪いだ水面を渡る風＝長さの違う 3 本の流線、うち 2 本の端を巻く。
 
 **Files:**
-- Create: `docs/nagi-mark.svg`
 - Create: `docs/favicon.svg`
 
 **Interfaces:**
 - Consumes: `docs/` の存在（Task 1）
-- Produces: 3 本のパス定義。Task 3 で `index.html` にインライン展開する。`d` 属性は 3 ファイル
-  （`nagi-mark.svg`・`favicon.svg`・`index.html`）で**完全に同一**に保つ:
+- Produces: 3 本のパス定義。`d` 属性は `favicon.svg` と `index.html` のインライン SVG（Task 3）で
+  **完全に同一**に保つ:
   - `M4 16h24a6 6 0 1 0-6-6`
   - `M4 24h30a6 6 0 1 1-6 6`
   - `M4 32h18`
 
   `viewBox` と `stroke-width` だけは用途で変える（ロゴ `0 0 48 48` / `3.5`、favicon `2 6 44 34` / `5`）。
 
-- [ ] **Step 1: `docs/nagi-mark.svg` を作る**
+**ロゴ単体の SVG ファイルは作らない。** ページのロゴは `index.html` にインライン展開する
+（外部 SVG を `<img>` で読むと `currentColor` を継承できず、色をトークンの外に直書きすることに
+なるため）。単体ファイルを置いてもサイトからは一度も読まれず、パスを同期する箇所が増えるだけになる。
+ロゴ単体が必要になったらそのとき作る。
 
-`stroke="currentColor"` にすることで、HTML にインライン展開したとき CSS の `color` を継承する。
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img"
-     aria-labelledby="nagi-mark-title" fill="none" stroke="currentColor"
-     stroke-width="3.5" stroke-linecap="round">
-  <title id="nagi-mark-title">Nagi のロゴ — 凪いだ水面を渡る風</title>
-  <path d="M4 16h24a6 6 0 1 0-6-6"/>
-  <path d="M4 24h30a6 6 0 1 1-6 6"/>
-  <path d="M4 32h18"/>
-</svg>
-```
-
-- [ ] **Step 2: `docs/favicon.svg` を作る**
+- [ ] **Step 1: `docs/favicon.svg` を作る**
 
 favicon はページの `color` を継承できないため、色を内蔵する。SVG 内の `<style>` で `prefers-color-scheme` を見れば、ブラウザのタブが暗いときに白く出る。
 
@@ -170,7 +158,7 @@ favicon はページの `color` を継承できないため、色を内蔵する
 </svg>
 ```
 
-- [ ] **Step 3: 目視で確認する**
+- [ ] **Step 2: 目視で確認する**
 
 Run:
 
@@ -178,22 +166,21 @@ Run:
 python3 -m http.server 8000 --directory docs
 ```
 
-ブラウザで `http://localhost:8000/nagi-mark.svg` と `http://localhost:8000/favicon.svg` を開く。
+ブラウザで `http://localhost:8000/favicon.svg` を開く。
 
 Expected: 3 本の横線が見え、**1 本目は右端が上向きに巻き、2 本目は右端が下向きに巻き、3 本目は短い直線**。全体が左から右への「流れ」に見える。
-
-`favicon.svg` は 16px でも判別できることを確認する。ブラウザのタブに出るサイズを再現するには、
-`index.html` が出来たあと（Task 3 以降）にタブのアイコンを見るのが確実。
 
 **崩れている場合:** 巻きの向きが逆なら円弧のフラグ（`a6 6 0 1 0` / `a6 6 0 1 1`）の最後の
 sweep-flag が入れ替わっている。巻きが円にならず直線に近いなら large-arc-flag が `0` になっている
 （正しくは `1`。270 度の巻きを描かせている）。
 
-- [ ] **Step 4: コミット**
+16px での判別は、`index.html` が出来たあと（Task 3 以降）にブラウザのタブアイコンで確認する。
+
+- [ ] **Step 3: コミット**
 
 ```bash
-git add docs/nagi-mark.svg docs/favicon.svg
-git commit -m "風マークの SVG を追加（SF Symbols は Web に使えないため自作）"
+git add docs/favicon.svg
+git commit -m "風マークの favicon を追加（SF Symbols は Web に使えないため自作）"
 ```
 
 ---
@@ -206,7 +193,7 @@ git commit -m "風マークの SVG を追加（SF Symbols は Web に使えな�
 - Create: `docs/index.html`
 
 **Interfaces:**
-- Consumes: `docs/favicon.svg`（`<link rel="icon">`）、`docs/nagi-mark.svg` のパス定義（インライン展開）
+- Consumes: `docs/favicon.svg`（`<link rel="icon">` と、同一に保つべきパス定義）
 - Produces: 以降の CSS が参照するクラス名。
   - レイアウト: `.wrap` `.band` `.section__head` `.section__lead`
   - ヒーロー: `.hero` `.hero__mark` `.hero__ruby` `.hero__lead` `.hero__sub` `.hero__actions` `.hero__meta`
