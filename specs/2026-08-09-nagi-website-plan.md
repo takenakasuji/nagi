@@ -200,7 +200,7 @@ git commit -m "風マークの favicon を追加（SF Symbols は Web に使え�
   - ボタン: `.btn` `.btn--primary` `.btn--secondary`
   - モック: `.mock` `.mock__win` `.mock__name` `.mock__rule` `.mock__body` `.mock__bar` `.mock__chip` `.mock__chip--primary` `.mock__spacer`
   - その他: `.cards` `.card` `.keys__scroll` `.steps` `.build` `.brew` `.footer` `.reveal`
-  - スタイルを持たない識別用フック: `.showcase` `.limits`
+  - セクション識別用: `.showcase`（Task 7 で背景の帯を当てる） `.limits`（スタイルなし）
 
 **設計書からの変更点:** 設計書は「窓の脇に `⌥Space` のキーキャップを添える」としていたが、
 独立した要素にせずセクションのリード文（`.section__lead`）に埋め込む。文として読めるほうが
