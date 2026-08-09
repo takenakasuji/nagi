@@ -340,6 +340,21 @@ pre {
 
 /* 6. 入力窓のモック ------------------------------------------------------ */
 
+/* モックが乗る面。窓は .hero ではなく .showcase の中にあり、この面が単色だと
+   backdrop-filter が視覚的に何もしない（ライトでは白地に白い窓になる）。
+   ヒーローの下端 --hero-to から続けて、窓が乗る帯を --hero-from で塗る。
+   specs/contrast.py はこの帯の上で材質を合成した色（#F9FBFD / #2E3136）で
+   測っているので、この背景がその前提を成立させている。 */
+.showcase {
+  background: linear-gradient(
+    180deg,
+    var(--hero-to),
+    var(--hero-from) 22%,
+    var(--hero-from) 88%,
+    var(--bg)
+  );
+}
+
 .mock { margin: 0; }
 
 .mock__win {
