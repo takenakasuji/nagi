@@ -13,6 +13,10 @@ public struct CaptureView: View {
 
     @FocusState private var focusedField: CaptureUIState.Field?
 
+    /// The body is an `NSViewRepresentable`, which `@FocusState` does not reach.
+    /// It gets the request's token instead and makes itself first responder.
+    @State private var bodyFocusToken: UUID?
+
     init(session: DraftSession, ui: CaptureUIState, onRequestHide: @escaping () -> Void) {
         self.session = session
         self.ui = ui
@@ -30,7 +34,13 @@ public struct CaptureView: View {
         .background(.regularMaterial)
         .onChange(of: ui.focusRequest) { _, request in
             guard let request else { return }
-            focusedField = request.field
+            switch request.field {
+            case .filename:
+                focusedField = .filename
+            case .body:
+                focusedField = nil
+                bodyFocusToken = request.token
+            }
             ui.focusRequest = nil
         }
         .background(keyboardShortcuts)
@@ -59,19 +69,19 @@ public struct CaptureView: View {
 
     private var bodyEditor: some View {
         ZStack(alignment: .topLeading) {
-            TextEditor(text: $session.body)
-                .font(.system(size: 13, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .focused($focusedField, equals: .body)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+            MarkdownTextView(
+                text: $session.body,
+                focusToken: bodyFocusToken,
+                onCancel: onRequestHide
+            )
 
             if session.body.isEmpty {
                 Text("雑に書く。整理はあとで Claude に任せる。")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 16)
+                    // textContainerInset と揃える。lineFragmentPadding は 0 にしてある
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                     .allowsHitTesting(false)
             }
         }
@@ -130,12 +140,16 @@ public struct CaptureView: View {
         .padding(.vertical, 8)
     }
 
-    /// Escape only.
+    /// Escape only — and only while focus is *not* in the body.
     ///
     /// ⌘Return / ⌘⇧S / ⌘, are handled by `CapturePanel.performKeyEquivalent`,
     /// because a hidden zero-sized button does not reliably win the shortcut
     /// against the focused text view. They must NOT also be bound here, or each
     /// press would fire twice — ⌘Return would write two files.
+    ///
+    /// Escape is bound here for the filename field. When the body has focus,
+    /// `NagiTextView.cancelOperation` claims it first and does not call `super`,
+    /// so the two never both fire.
     private var keyboardShortcuts: some View {
         Button("") { onRequestHide() }
             .keyboardShortcut(.cancelAction)

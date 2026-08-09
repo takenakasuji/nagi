@@ -66,6 +66,23 @@ CHECKS = [
     ("ダーク 白         on accent-fill", "#FFFFFF", "#0A6ADF", 4.5),
 ]
 
+# 実機のキャプチャから採った、本文領域の実効背景（.regularMaterial 合成後）。
+EDITOR_LIGHT_BG = "#F4F4F4"
+EDITOR_DARK_BG = "#2F2F2F"
+
+CHECKS += [
+    ("エディタ 本文 (light)",   "#1C1C1E", EDITOR_LIGHT_BG, 4.5),
+    ("エディタ 見出し (light)", "#0A58CA", EDITOR_LIGHT_BG, 4.5),
+    ("エディタ コード (light)", "#1F7A3D", EDITOR_LIGHT_BG, 4.5),
+    ("エディタ リンク (light)", "#7A34C4", EDITOR_LIGHT_BG, 4.5),
+    ("エディタ 引用 (light)",   "#666B72", EDITOR_LIGHT_BG, 4.5),
+    ("エディタ 本文 (dark)",    "#E4E4E6", EDITOR_DARK_BG, 4.5),
+    ("エディタ 見出し (dark)",  "#6FA8FF", EDITOR_DARK_BG, 4.5),
+    ("エディタ コード (dark)",  "#7FCE8F", EDITOR_DARK_BG, 4.5),
+    ("エディタ リンク (dark)",  "#C08CF0", EDITOR_DARK_BG, 4.5),
+    ("エディタ 引用 (dark)",    "#9AA0A8", EDITOR_DARK_BG, 4.5),
+]
+
 # 却下した値。再導入されていないことを確かめるための記録。
 REJECTED = [
     ("#007AFF は白文字で不足", "#FFFFFF", "#007AFF", 4.5),

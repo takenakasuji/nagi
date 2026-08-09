@@ -70,6 +70,10 @@ These encode bugs that were found the hard way. Changing them will reintroduce t
 
 **The hotkey recorder's `NSEvent` local monitor is scoped to the window that armed it.** A local monitor sees every key press in the app, and returning `nil` starves the rest of the app of it — without the guard, arming the recorder and then summoning the capture window leaves it unable to accept a single character.
 
+**Escape is claimed by `NagiTextView.cancelOperation`, and by the SwiftUI `.cancelAction` button — never by both at once.** A bare Escape is not a key equivalent, so it travels the responder chain: the text view sees it first when the body has focus, the hidden button catches it when the filename field does. `cancelOperation` deliberately does not call `super`, which is what keeps the two from both firing. It also returns early on `hasMarkedText()`, because during Japanese conversion Escape belongs to the input method.
+
+**The body editor is `NSTextView`, not `TextEditor`.** Colouring and Return/Tab handling are both impossible through `TextEditor` on macOS 14, and reaching into SwiftUI's own text view breaks the binding it owns. The decisions live in `NagiCore` (`MarkdownHighlighting`, `MarkdownLineEditing`) as pure functions over UTF-16 offsets; `MarkdownTextView` only applies what they return. Keep new rules on the Core side.
+
 ### macOS gotchas verified in this project
 
 - **`CGWindowListCopyWindowInfo` cannot see status items.** `NSStatusBarWindow.windowNumber` is 2³², which overflows `CGWindowID` (`UInt32`). A menu-bar item will *never* appear there — do not conclude it is missing. Dump `NSApp.windows` from inside the app instead. More generally: before concluding "X does not exist", prove the instrument can detect X when it *is* present.

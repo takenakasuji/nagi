@@ -163,6 +163,77 @@ struct RealAppKitIntegrationTests {
         #expect(try String(contentsOf: written, encoding: .utf8) == "ホットキーから書いた本文")
         #expect(controller.isVisible == false)
     }
+
+    @Test("本文の Escape はキーイベントから hide 要求に変換される")
+    func escapeInBodyReachesCancel() {
+        bootstrapAppKit()
+
+        let panel = CapturePanel(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        let textView = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        var cancelled = false
+        textView.onCancel = { cancelled = true }
+        panel.contentView?.addSubview(textView)
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+
+        #expect(panel.makeFirstResponder(textView))
+
+        // Esc は修飾なしなので key equivalent にはならない。標準のキーバインドで
+        // cancelOperation: に落ち、responder chain を上がってくる経路を実際に通す。
+        textView.keyDown(with: keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []))
+        #expect(cancelled)
+    }
+
+    @Test("本文にフォーカスがあっても ⌘Return はパネルが先に受け取る")
+    func commandReturnWinsAgainstTheTextView() {
+        bootstrapAppKit()
+
+        let panel = CapturePanel(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        let textView = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        panel.contentView?.addSubview(textView)
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        #expect(panel.makeFirstResponder(textView))
+
+        var received: [CaptureCommand] = []
+        panel.onCommand = { received.append($0) }
+
+        #expect(panel.performKeyEquivalent(with: keyEvent(characters: "\r", keyCode: 36, modifiers: [.command])))
+        #expect(received == [.save])
+    }
+
+    @Test("色付けは本文全体を塗り直し、記号と地の色を塗り分ける")
+    func highlightingPaintsMarkersAndBody() {
+        bootstrapAppKit()
+
+        let textView = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        textView.string = "## 見出し\n- 項目"
+        MarkdownTextViewHighlighting.apply(to: textView)
+
+        guard let storage = textView.textStorage else {
+            Issue.record("text storage が無い")
+            return
+        }
+        // UTF-16 の位置: "## 見出し" が 0..<6、改行が 6、"- 項目" が 7..<11。
+        #expect(storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+                == MarkdownTheme.color(for: .heading))
+        // 箇条書きの "-"
+        #expect(storage.attribute(.foregroundColor, at: 7, effectiveRange: nil) as? NSColor
+                == MarkdownTheme.color(for: .marker))
+        // 記号のうしろは地の色に戻る
+        #expect(storage.attribute(.foregroundColor, at: 9, effectiveRange: nil) as? NSColor
+                == MarkdownTheme.bodyColor)
+    }
 }
 
 extension Tag {
