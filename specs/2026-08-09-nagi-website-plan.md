@@ -600,13 +600,17 @@ kbd {
   border-bottom-width: 2px;
   border-radius: .375em;
   background: var(--bg);
-  font-size: .8125em;
+  font-size: var(--step--1);
   font-weight: 500;
   line-height: 1.7;
   text-align: center;
   white-space: nowrap;
 }
 ```
+
+`kbd` のサイズを `em` でなく `--step--1`（14px）で固定しているのは、`em` にすると本文 17px から
+計算されて 13.8px になり、Global Constraints の「最小 14px」を割るため。`kbd` はキー名という
+読ませる内容なので、装飾扱いにはできない。
 
 - [ ] **Step 2: トークンが両テーマで解決されることを確認する**
 
