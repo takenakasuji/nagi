@@ -325,5 +325,13 @@ pre {
 
 @media (hover: hover) {
   .btn--primary:hover   { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
-  .btn--secondary:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  /* secondary は hover で塗りボタンになる。背景を accent でティントする案は
+     使えない — ダークの安静時が 4.51:1 しかなく、同じ色相を 8% 重ねただけで
+     4.11:1 まで落ちる（specs/contrast.py の却下リストに記録）。塗りに変えれば
+     白文字 5.62:1 / 5.07:1 で、既に測ってある組み合わせに帰着する。 */
+  .btn--secondary:hover {
+    background: var(--accent-fill);
+    color: var(--accent-on-fill);
+    box-shadow: inset 0 0 0 1px var(--accent-fill);
+  }
 }
