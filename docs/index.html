@@ -56,20 +56,33 @@
             <path d="M9.5 1.5H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V5.5z"/>
             <path d="M9.5 1.5v4h4M5.5 8.5h5M5.5 11h5"/>
           </svg>
-          <span>ファイル名（.md は自動）</span>
+          <span>会議メモ<span class="mock__hint">.md</span></span>
         </div>
         <div class="mock__rule"></div>
         <div class="mock__body">雑に書く。整理はあとで Claude に任せる。</div>
         <div class="mock__rule"></div>
         <div class="mock__bar">
-          <span class="mock__chip">退避</span>
-          <span class="mock__chip">設定</span>
+          <span class="mock__chip">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor"
+                 stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M1.8 9.5h3l.9 1.6h4.6l.9-1.6h3"/>
+              <path d="M3.4 3.1 1.8 9.5v3.1h12.4V9.5l-1.6-6.4z"/>
+            </svg>
+            退避
+          </span>
+          <span class="mock__chip">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor"
+                 stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="2.1"/>
+              <path d="M8 1.6v1.9M8 12.5v1.9M14.4 8h-1.9M3.5 8H1.6M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8 3.5 3.5"/>
+            </svg>
+          </span>
           <span class="mock__spacer"></span>
           <span class="mock__chip">退避 ⌘⇧S</span>
           <span class="mock__chip mock__chip--primary">保存 ⌘↩</span>
         </div>
       </div>
-      <figcaption>入力窓は 660 × 440。ファイル名、本文、下のツールバーだけ。</figcaption>
+      <figcaption>ファイル名、本文、下のツールバー。これだけです。実際の窓はもっと縦に長く、書く場所が広くとってあります。</figcaption>
     </figure>
   </div>
 </section>
@@ -113,11 +126,12 @@
         </thead>
         <tbody>
           <tr><td><kbd>⌥</kbd><kbd>Space</kbd></td><td>メモ入力ウインドウを開く／閉じる（設定で変更可）</td></tr>
-          <tr><td><kbd>⌘</kbd><kbd>Enter</kbd></td><td>指定フォルダに <code>ファイル名.md</code> として保存し、ウインドウを閉じる</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>Enter</kbd> / <kbd>⌘</kbd><kbd>S</kbd></td><td>指定フォルダに <code>ファイル名.md</code> として保存し、ウインドウを閉じる</td></tr>
           <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>S</kbd></td><td>書きかけを退避し、エディタを空にする</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>ウインドウを隠す。内容は消えず、次に開くと続きから</td></tr>
           <tr><td><kbd>Enter</kbd></td><td>ファイル名欄では本文へ移動する（誤って保存しないため）</td></tr>
           <tr><td><kbd>⌘</kbd><kbd>,</kbd></td><td>設定を開く</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>W</kbd> / <kbd>Esc</kbd></td><td>設定ウインドウを閉じる</td></tr>
         </tbody>
       </table>
     </div>
@@ -140,13 +154,14 @@
       <li>
         <div>
           <h3><code>Nagi.app</code> を <code>/Applications</code> に入れる</h3>
-          <p>「ログイン時に起動」は、ここに置いてあるときに安定して動きます。</p>
+          <p>ここに置いておくと「ログイン時に起動」が安定します（署名していない現状では、それでも外れることがあります）。</p>
         </div>
       </li>
       <li>
         <div>
-          <h3>初回だけ、右クリック →「開く」</h3>
-          <p>Nagi は ad-hoc 署名です。Apple の Developer ID による署名と公証をしていないため、ダブルクリックでは macOS が起動を止めます。一度「開く」を選べば、次からは普通に起動します。</p>
+          <h3>初回だけ、システム設定で開くことを許可する</h3>
+          <p>Nagi は ad-hoc 署名です。Apple の Developer ID による署名と公証をしていないため、初回はそのままでは起動できません。一度 <code>Nagi.app</code> を開こうとしてから、<strong>システム設定 → プライバシーとセキュリティ</strong> を開き、下のほうに出る「"Nagi" は開発元を確認できないため、使用がブロックされました」の横の<strong>「このまま開く」</strong>を押してください。次からは普通に起動します。</p>
+          <p>macOS 14 Sonoma では、<code>Nagi.app</code> を右クリック →「開く」でも許可できます。macOS 15 Sequoia 以降はこの方法が使えなくなったため、上の手順を使ってください。</p>
         </div>
       </li>
       <li>
@@ -184,7 +199,7 @@ cp -R build/Nagi.app /Applications/</code></pre>
       </li>
       <li class="card">
         <h3>ad-hoc 署名</h3>
-        <p>初回だけ右クリック →「開く」が必要です。Developer ID による署名と公証はしていません。</p>
+        <p>Developer ID による署名と公証をしていないため、初回だけシステム設定 → プライバシーとセキュリティで「このまま開く」を押す必要があります。macOS 15 Sequoia 以降、右クリック →「開く」では許可できません。</p>
       </li>
       <li class="card">
         <h3>非サンドボックス</h3>

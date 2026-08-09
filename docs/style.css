@@ -355,8 +355,6 @@ pre {
   );
 }
 
-.mock { margin: 0; }
-
 .mock__win {
   max-width: 41.25rem; /* 660px */
   margin-inline: auto;
@@ -367,7 +365,6 @@ pre {
   box-shadow: var(--shadow);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  text-align: left;
 }
 
 /* backdrop-filter が無い環境では、半透明のままだと文字のコントラストが
@@ -385,6 +382,10 @@ pre {
   font-size: var(--step--1);
   font-weight: 500;
 }
+
+/* 入力済みのファイル名の後ろに、実際に付く拡張子を薄く見せる。
+   アプリが名前欄に描いているものと同じ。 */
+.mock__hint { opacity: .55; }
 
 .mock__rule { height: 1px; background: var(--separator); }
 
@@ -404,6 +405,9 @@ pre {
 }
 
 .mock__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
   padding: .25rem .5rem;
   border-radius: .3125rem;
   color: var(--label-secondary);
