@@ -1135,11 +1135,14 @@ git commit -m "入力窓のモックとマテリアルのスタイルを追加"
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
-  border-radius: .25rem;
 }
 
 /* リングは outline-offset で要素の外に出す。塗りの CTA の上に同色で描くと
-   見えなくなるため。 */
+   見えなくなるため。
+
+   border-radius をここで指定しないこと。詳細度が .btn と同じで後に来るため
+   ピル型（999px）を上書きし、Tab した瞬間にボタンが角丸長方形に変形する。
+   outline は元々要素自身の border-radius に沿うので、指定する必要がない。 */
 
 @media (prefers-reduced-motion: no-preference) {
   .hero > .wrap > * {
