@@ -130,4 +130,41 @@ struct NoteWriterTests {
             #expect(FileManager.default.fileExists(atPath: url.path))
         }
     }
+
+    // MARK: - the hint shown in the name field
+
+    // The editor shows this faintly after what the user typed. It is derived
+    // from the same rule that writes the file so the hint can never promise an
+    // extension that `write` would not actually add.
+
+    @Test("拡張子の無い名前には .md を補うと示す")
+    func hintsMarkdownForPlainName() {
+        #expect(NoteWriter.markdownSuffix(for: "議事録") == ".md")
+        #expect(NoteWriter.markdownSuffix(for: "a") == ".md")
+    }
+
+    @Test("すでに .md で終わる名前には何も示さない")
+    func noHintWhenAlreadyMarkdown() {
+        #expect(NoteWriter.markdownSuffix(for: "議事録.md") == nil)
+        // markdownName matches case-insensitively, so the hint must too.
+        #expect(NoteWriter.markdownSuffix(for: "議事録.MD") == nil)
+    }
+
+    @Test("空の名前には何も示さない")
+    func noHintForEmptyName() {
+        #expect(NoteWriter.markdownSuffix(for: "") == nil)
+        #expect(NoteWriter.markdownSuffix(for: "   ") == nil)
+    }
+
+    @Test("保存できない名前には何も示さない")
+    func noHintWhenNameWouldBeRefused() {
+        // "///" sanitizes to nothing and `write` throws — promising ".md" here
+        // would be a lie.
+        #expect(NoteWriter.markdownSuffix(for: "///") == nil)
+    }
+
+    @Test("他の拡張子は置き換えず .md を足すと示す")
+    func hintsForOtherExtensions() {
+        #expect(NoteWriter.markdownSuffix(for: "notes.txt") == ".md")
+    }
 }

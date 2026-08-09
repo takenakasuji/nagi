@@ -47,6 +47,18 @@ public enum NoteWriter {
         name.lowercased().hasSuffix(".md") ? name : name + ".md"
     }
 
+    /// The extension ``write(body:filename:to:)`` would append to `filename`,
+    /// or `nil` when it would append nothing — including when the name is one
+    /// this writer refuses outright.
+    ///
+    /// The editor shows this faintly after what the user has typed. Deriving it
+    /// from the same rules that name the file is the point: a hint that promised
+    /// an extension the writer would not add would be worse than no hint.
+    public static func markdownSuffix(for filename: String) -> String? {
+        guard let safe = sanitize(filename) else { return nil }
+        return markdownName(safe) == safe ? nil : ".md"
+    }
+
     /// Writes `body` as UTF-8 to `<directory>/<filename>.md`.
     ///
     /// Never overwrites: on collision a counter is inserted before the

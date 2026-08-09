@@ -1,3 +1,4 @@
+import AppKit
 import NagiCore
 import SwiftUI
 
@@ -12,6 +13,25 @@ public struct CaptureView: View {
     @Environment(AppEnvironment.self) private var env
 
     @FocusState private var focusedField: CaptureUIState.Field?
+
+    private static let nameFont = Font.system(size: 13, weight: .medium)
+    private static let nameNSFont = NSFont.systemFont(ofSize: 13, weight: .medium)
+    /// Every control in the toolbar draws at this size. Stated once because the
+    /// bordered and accessory-bar styles do not agree on a default.
+    private static let toolbarFont = Font.system(size: 11)
+    /// Room the hint needs before it is worth drawing at all, rather than
+    /// letting it slide under the edge of the field.
+    private static let suffixWidth: CGFloat = 26
+
+    /// Advance width of `text` in the name field's font.
+    ///
+    /// Measured directly with AppKit rather than through a `GeometryReader` and
+    /// a preference: preferences set inside a `background` do not reliably reach
+    /// the parent, which left the hint permanently invisible.
+    private static func typedWidth(_ text: String) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        return (text as NSString).size(withAttributes: [.font: nameNSFont]).width
+    }
 
     init(session: DraftSession, ui: CaptureUIState, onRequestHide: @escaping () -> Void) {
         self.session = session
@@ -38,25 +58,41 @@ public struct CaptureView: View {
 
     // MARK: - pieces
 
+    /// The name field, with the extension that will actually be written shown in
+    /// a lighter colour immediately after the typed text.
+    ///
+    /// This replaces the old "（.md は自動）" placeholder: it states the same rule
+    /// at the moment it applies, and it disappears once the name already ends in
+    /// `.md` — which is exactly when nothing further gets appended.
     private var filenameField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "doc.text")
-                .foregroundStyle(.secondary)
-                .font(.system(size: 12))
-                // Decorative: the field's own placeholder already names it.
-                .accessibilityHidden(true)
+        TextField("ファイル名", text: $session.filename)
+            .textFieldStyle(.plain)
+            .font(Self.nameFont)
+            .focused($focusedField, equals: .filename)
+            // Enter in the name field jumps to the body rather than saving, so a
+            // stray Return never writes a half-written note.
+            .onSubmit { focusedField = .body }
+            .overlay(alignment: .leading) { markdownHint }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+    }
 
-            TextField("ファイル名（.md は自動）", text: $session.filename)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13, weight: .medium))
-                .focused($focusedField, equals: .filename)
-                // Enter in the name field jumps to the body rather than saving,
-                // so a stray Return never writes a half-written note.
-                .onSubmit { focusedField = .body }
+    /// ".md" trailing the typed name, in the field's own coordinate space.
+    private var markdownHint: some View {
+        GeometryReader { proxy in
+            let x = Self.typedWidth(session.filename)
+            if let suffix = NoteWriter.markdownSuffix(for: session.filename),
+               x > 0, x + Self.suffixWidth <= proxy.size.width {
+                Text(suffix)
+                    .font(Self.nameFont)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .offset(x: x)
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var bodyEditor: some View {
@@ -71,11 +107,14 @@ public struct CaptureView: View {
             if session.body.isEmpty {
                 // .secondary rather than .tertiary: tertiary measures ~1.9:1
                 // against this background, far below the 4.5:1 minimum.
+                // 15 / 8, not 15 / 16: the editor's padding plus the text
+                // container's 5pt line-fragment padding puts the first glyph at
+                // x=15, y=8. Measured — the placeholder used to sit 8pt low.
                 Text("雑に書く。整理はあとで Claude に任せる。")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 15)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 8)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -120,16 +159,22 @@ public struct CaptureView: View {
 
             Spacer(minLength: 8)
 
-            Button("退避 ⌘⇧S") { env.stash() }
-                .buttonStyle(.accessoryBar)
-                .font(.system(size: 11))
-                .help("書きかけを退避してエディタを空にする")
+            // The font goes on the label, not the environment: .borderedProminent
+            // substitutes its own font for the control size and ignores an
+            // ambient .font(), while .accessoryBar honours it — which is why
+            // these two used to render at visibly different sizes.
+            Button { env.stash() } label: {
+                Text("退避 ⌘⇧S").font(Self.toolbarFont)
+            }
+            .buttonStyle(.accessoryBar)
+            .help("書きかけを退避してエディタを空にする")
 
-            Button("保存 ⌘↩") { env.save() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .font(.system(size: 11))
-                .help("保存先フォルダに .md として書き出す（⌘S も可）")
+            Button { env.save() } label: {
+                Text("保存 ⌘↩").font(Self.toolbarFont)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .help("保存先フォルダに .md として書き出す（⌘S も可）")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
