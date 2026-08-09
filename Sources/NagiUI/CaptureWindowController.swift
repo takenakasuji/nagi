@@ -30,21 +30,34 @@ final class CapturePanel: NSPanel {
 /// Owns the capture window: creates it lazily, shows it centred and focused,
 /// and hides it without destroying the text.
 @MainActor
-public final class CaptureWindowController {
+public final class CaptureWindowController: NSObject {
     private var panel: CapturePanel?
     private let env: AppEnvironment
 
+    /// Remembers size and position between launches. Without it the panel
+    /// invites dragging and resizing (it is movable by its background) and then
+    /// throws the result away.
+    private static let frameAutosaveName = "NagiCaptureWindow"
+
     public init(env: AppEnvironment) {
         self.env = env
+        super.init()
     }
 
     public var isVisible: Bool { panel?.isVisible ?? false }
 
     public func show() {
+        let isFirstUse = panel == nil
         let panel = panel ?? makePanel()
         self.panel = panel
 
-        centerOnActiveScreen(panel)
+        // Only place it ourselves when there is nothing worth restoring, or when
+        // the remembered frame is off-screen (an external display went away).
+        if isFirstUse, !panel.setFrameUsingName(Self.frameAutosaveName) {
+            centerOnActiveScreen(panel)
+        } else if !isOnAnyScreen(panel) {
+            centerOnActiveScreen(panel)
+        }
 
         // An accessory app must activate itself or the panel gets no key events.
         NSApp.activate(ignoringOtherApps: true)
@@ -59,6 +72,7 @@ public final class CaptureWindowController {
     /// Orders the panel out. Persisting the draft is `AppEnvironment`'s job —
     /// this stays a pure window operation.
     public func hide() {
+        panel?.saveFrame(usingName: Self.frameAutosaveName)
         panel?.orderOut(nil)
     }
 
@@ -99,8 +113,14 @@ public final class CaptureWindowController {
         .environment(env)
 
         panel.contentView = NSHostingView(rootView: root)
+        panel.delegate = self
 
         return panel
+    }
+
+    /// True when the panel's remembered frame still intersects a live screen.
+    private func isOnAnyScreen(_ panel: NSWindow) -> Bool {
+        NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) }
     }
 
     /// Centres on whichever screen the pointer is on, so the window appears
@@ -120,5 +140,15 @@ public final class CaptureWindowController {
             // Slightly above centre reads better than dead centre.
             y: visible.midY - size.height / 2 + visible.height * 0.06
         ))
+    }
+}
+
+extension CaptureWindowController: NSWindowDelegate {
+    /// The red close button would otherwise call `close()` directly, bypassing
+    /// the one path that persists the draft. Route it through the same door as
+    /// Escape and the hotkey instead of letting it become a second hide path.
+    public func windowShouldClose(_ sender: NSWindow) -> Bool {
+        env.hideCaptureWindow()
+        return false
     }
 }

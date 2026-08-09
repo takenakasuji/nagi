@@ -34,7 +34,6 @@
 |---|---|
 | `LICENSE` | MIT ライセンス本文 |
 | `docs/.nojekyll` | 空ファイル。GitHub Pages の Jekyll ビルドを止める |
-| `docs/nagi-mark.svg` | ロゴ。`currentColor` を継承する。HTML にインライン展開して使う原本 |
 | `docs/favicon.svg` | favicon。ページの色を継承できないため、色を内蔵し `prefers-color-scheme` で切り替える |
 | `docs/index.html` | 7 セクションのマークアップ。構造と文言のすべて |
 | `docs/style.css` | 全スタイル。7 層に区切ってコメントで見出しを打つ |
@@ -119,35 +118,24 @@ git commit -m "MIT ライセンスと docs/ の土台を追加"
 SF Symbols の `wind` は Apple プラットフォーム外に再配布できないため、Web 用に自分で描く。凪いだ水面を渡る風＝長さの違う 3 本の流線、うち 2 本の端を巻く。
 
 **Files:**
-- Create: `docs/nagi-mark.svg`
 - Create: `docs/favicon.svg`
 
 **Interfaces:**
 - Consumes: `docs/` の存在（Task 1）
-- Produces: 3 本のパス定義。Task 3 で `index.html` にインライン展開する。`d` 属性は 3 ファイル
-  （`nagi-mark.svg`・`favicon.svg`・`index.html`）で**完全に同一**に保つ:
+- Produces: 3 本のパス定義。`d` 属性は `favicon.svg` と `index.html` のインライン SVG（Task 3）で
+  **完全に同一**に保つ:
   - `M4 16h24a6 6 0 1 0-6-6`
   - `M4 24h30a6 6 0 1 1-6 6`
   - `M4 32h18`
 
   `viewBox` と `stroke-width` だけは用途で変える（ロゴ `0 0 48 48` / `3.5`、favicon `2 6 44 34` / `5`）。
 
-- [ ] **Step 1: `docs/nagi-mark.svg` を作る**
+**ロゴ単体の SVG ファイルは作らない。** ページのロゴは `index.html` にインライン展開する
+（外部 SVG を `<img>` で読むと `currentColor` を継承できず、色をトークンの外に直書きすることに
+なるため）。単体ファイルを置いてもサイトからは一度も読まれず、パスを同期する箇所が増えるだけになる。
+ロゴ単体が必要になったらそのとき作る。
 
-`stroke="currentColor"` にすることで、HTML にインライン展開したとき CSS の `color` を継承する。
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img"
-     aria-labelledby="nagi-mark-title" fill="none" stroke="currentColor"
-     stroke-width="3.5" stroke-linecap="round">
-  <title id="nagi-mark-title">Nagi のロゴ — 凪いだ水面を渡る風</title>
-  <path d="M4 16h24a6 6 0 1 0-6-6"/>
-  <path d="M4 24h30a6 6 0 1 1-6 6"/>
-  <path d="M4 32h18"/>
-</svg>
-```
-
-- [ ] **Step 2: `docs/favicon.svg` を作る**
+- [ ] **Step 1: `docs/favicon.svg` を作る**
 
 favicon はページの `color` を継承できないため、色を内蔵する。SVG 内の `<style>` で `prefers-color-scheme` を見れば、ブラウザのタブが暗いときに白く出る。
 
@@ -170,7 +158,7 @@ favicon はページの `color` を継承できないため、色を内蔵する
 </svg>
 ```
 
-- [ ] **Step 3: 目視で確認する**
+- [ ] **Step 2: 目視で確認する**
 
 Run:
 
@@ -178,22 +166,21 @@ Run:
 python3 -m http.server 8000 --directory docs
 ```
 
-ブラウザで `http://localhost:8000/nagi-mark.svg` と `http://localhost:8000/favicon.svg` を開く。
+ブラウザで `http://localhost:8000/favicon.svg` を開く。
 
 Expected: 3 本の横線が見え、**1 本目は右端が上向きに巻き、2 本目は右端が下向きに巻き、3 本目は短い直線**。全体が左から右への「流れ」に見える。
-
-`favicon.svg` は 16px でも判別できることを確認する。ブラウザのタブに出るサイズを再現するには、
-`index.html` が出来たあと（Task 3 以降）にタブのアイコンを見るのが確実。
 
 **崩れている場合:** 巻きの向きが逆なら円弧のフラグ（`a6 6 0 1 0` / `a6 6 0 1 1`）の最後の
 sweep-flag が入れ替わっている。巻きが円にならず直線に近いなら large-arc-flag が `0` になっている
 （正しくは `1`。270 度の巻きを描かせている）。
 
-- [ ] **Step 4: コミット**
+16px での判別は、`index.html` が出来たあと（Task 3 以降）にブラウザのタブアイコンで確認する。
+
+- [ ] **Step 3: コミット**
 
 ```bash
-git add docs/nagi-mark.svg docs/favicon.svg
-git commit -m "風マークの SVG を追加（SF Symbols は Web に使えないため自作）"
+git add docs/favicon.svg
+git commit -m "風マークの favicon を追加（SF Symbols は Web に使えないため自作）"
 ```
 
 ---
@@ -206,14 +193,14 @@ git commit -m "風マークの SVG を追加（SF Symbols は Web に使えな�
 - Create: `docs/index.html`
 
 **Interfaces:**
-- Consumes: `docs/favicon.svg`（`<link rel="icon">`）、`docs/nagi-mark.svg` のパス定義（インライン展開）
+- Consumes: `docs/favicon.svg`（`<link rel="icon">` と、同一に保つべきパス定義）
 - Produces: 以降の CSS が参照するクラス名。
   - レイアウト: `.wrap` `.band` `.section__head` `.section__lead`
   - ヒーロー: `.hero` `.hero__mark` `.hero__ruby` `.hero__lead` `.hero__sub` `.hero__actions` `.hero__meta`
   - ボタン: `.btn` `.btn--primary` `.btn--secondary`
   - モック: `.mock` `.mock__win` `.mock__name` `.mock__rule` `.mock__body` `.mock__bar` `.mock__chip` `.mock__chip--primary` `.mock__spacer`
   - その他: `.cards` `.card` `.keys__scroll` `.steps` `.build` `.brew` `.footer` `.reveal`
-  - スタイルを持たない識別用フック: `.showcase` `.limits`
+  - セクション識別用: `.showcase`（Task 7 で背景の帯を当てる） `.limits`（スタイルなし）
 
 **設計書からの変更点:** 設計書は「窓の脇に `⌥Space` のキーキャップを添える」としていたが、
 独立した要素にせずセクションのリード文（`.section__lead`）に埋め込む。文として読めるほうが
@@ -602,7 +589,10 @@ h3 { font-size: var(--step-1); }
 p { text-wrap: pretty; }
 
 code, kbd, pre { font-family: var(--font-mono); }
-code { font-size: .9375em; }
+
+/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.brew）の中に
+   入ると em が掛かって 13.1px まで落ちる。max() で 14px を床にする。 */
+code { font-size: max(var(--step--1), .9375em); }
 
 kbd {
   display: inline-block;
@@ -613,13 +603,17 @@ kbd {
   border-bottom-width: 2px;
   border-radius: .375em;
   background: var(--bg);
-  font-size: .8125em;
+  font-size: var(--step--1);
   font-weight: 500;
   line-height: 1.7;
   text-align: center;
   white-space: nowrap;
 }
 ```
+
+`kbd` のサイズを `em` でなく `--step--1`（14px）で固定しているのは、`em` にすると本文 17px から
+計算されて 13.8px になり、Global Constraints の「最小 14px」を割るため。`kbd` はキー名という
+読ませる内容なので、装飾扱いにはできない。
 
 - [ ] **Step 2: トークンが両テーマで解決されることを確認する**
 
@@ -942,8 +936,19 @@ git commit -m "サイトのレイアウト（セクション、カード、表�
 }
 
 @media (hover: hover) {
-  .btn--primary:hover   { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
-  .btn--secondary:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .btn--primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
+
+  /* secondary の hover は --bg を敷いて枠を太くする。却下した案が 2 つある:
+     (1) accent を 8% ティント — ダークの安静時が 4.51:1 しかなく、同じ色相を
+         重ねるだけで 4.11:1 まで落ちる。
+     (2) accent-fill の塗りに変える — コントラストは通るが、隣の primary の
+         安静時と画素単位で同一になり、主従の区別が消える。
+     --bg なら文字色のコントラストは安静時より上がり（グラデ上の 4.93 / 4.51 →
+     5.62 / 4.66）、primary とも見分けがつく。 */
+  .btn--secondary:hover {
+    background: var(--bg);
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
 }
 ```
 
@@ -1130,11 +1135,14 @@ git commit -m "入力窓のモックとマテリアルのスタイルを追加"
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
-  border-radius: .25rem;
 }
 
 /* リングは outline-offset で要素の外に出す。塗りの CTA の上に同色で描くと
-   見えなくなるため。 */
+   見えなくなるため。
+
+   border-radius をここで指定しないこと。詳細度が .btn と同じで後に来るため
+   ピル型（999px）を上書きし、Tab した瞬間にボタンが角丸長方形に変形する。
+   outline は元々要素自身の border-radius に沿うので、指定する必要がない。 */
 
 @media (prefers-reduced-motion: no-preference) {
   .hero > .wrap > * {
@@ -1147,17 +1155,17 @@ git commit -m "入力窓のモックとマテリアルのスタイルを追加"
   .hero__sub     { animation-delay: .18s; }
   .hero__actions { animation-delay: .24s; }
   .hero__meta    { animation-delay: .30s; }
-
-  /* スクロール駆動。非対応ブラウザではこのブロックごと無視され、
-     .reveal は最初から見えている状態になる。 */
-  @supports (animation-timeline: view()) {
-    .reveal {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 10% cover 28%;
-    }
-  }
 }
+
+/* スクロール駆動の reveal は入れない。
+   `animation: rise linear both` + `animation-timeline: view()` +
+   `animation-range: entry 10% cover 28%` を実際に動かしたところ、Chrome で
+   ビューポート内に完全に入っている要素が opacity 0 のままになった
+   （原則セクション、インストール手順、制限セクションが丸ごと空白になる）。
+   そもそも animation-timeline は Chrome 系しか実装しておらず、macOS 向けの
+   このサイトでは大半の訪問者に効かない。読ませることが目的のページで、
+   一部のブラウザだけ本文を消す仕掛けは割に合わない。動きはヒーローの
+   入場だけに留める。 */
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(.75rem); }
@@ -1390,3 +1398,22 @@ Expected: サイトに書いた 4 ステップだけで動く。詰まった箇�
 - **OGP 画像を用意していない。** `og:image` は指定していないため、SNS 共有時はテキストのみのカードになる。
   必要になったら別途作る（本計画の範囲外）。
 - **Homebrew cask は将来対応。** サイトには枠と「準備中」の表示のみを置く。
+
+## 最終レビューで見送った項目
+
+判断した上で入れなかったもの。忘れて再検討しないための記録。
+
+- **原則カードと制限カードのアイコンを入れなかった。** 設計書 §3 は「アイコン + 見出し + 2 行」と
+  していたが、見出しだけで出している。アクセシビリティ要件 3（色だけで情報を伝えない）の実質は
+  満たしている — このページに色だけで意味を伝えている箇所はない。7 個のアイコンを新たに描くのは
+  公開直前の変更として割に合わないと判断した。入れるなら次の機会に。
+- **`og:image` を用意していない。** SNS でのカードはテキストのみになる。画像を 1 枚持つと
+  「外部リソースを読み込まない」というこのサイトの性格に最初のバイナリ資産が入る。必要になったら
+  そのとき判断する。
+- **`pre { background: var(--bg-subtle) }` は現状どの要素にも効いていない**（唯一の `<pre>` が
+  `.band` の中にあり、`.band pre` が必ず勝つ）。`.band` の外に `<pre>` を置いたときの
+  保険として残している。
+- **アプリ本体が並行して変更されている。** 作業中に `README.md` / `Sources/` / `Tests/` に
+  未コミットの変更が入った（ファイル名欄の `.md` 表示、`⌘S`、設定ウインドウの `⌘W` など）。
+  サイトのモックとキー操作表はこの新しい挙動に合わせてあるが、アプリ側が確定したら
+  もう一度突き合わせること。

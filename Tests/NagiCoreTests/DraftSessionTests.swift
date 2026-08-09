@@ -197,6 +197,34 @@ struct DraftSessionTests {
         #expect(session.store.load().stashes.map(\.body) == ["残す"])
     }
 
+    @Test("破棄したスタッシュは元の位置に戻せる")
+    func restoreStashPutsItBackAtItsIndex() throws {
+        let first = Draft(body: "一つ目")
+        let doomed = Draft(body: "消す")
+        let last = Draft(body: "三つ目")
+        let (session, _) = makeSession(
+            state: NagiState(activeDraft: nil, stashes: [first, doomed, last])
+        )
+        try session.discardStash(doomed.id)
+
+        try session.restoreStash(doomed, at: 1)
+
+        #expect(session.stashes.map(\.body) == ["一つ目", "消す", "三つ目"])
+        #expect(session.store.load().stashes.map(\.body) == ["一つ目", "消す", "三つ目"])
+    }
+
+    @Test("一覧が縮んでいても復元位置は範囲内に収める")
+    func restoreStashClampsOutOfRangeIndex() throws {
+        let doomed = Draft(body: "消す")
+        let (session, _) = makeSession(state: NagiState(activeDraft: nil, stashes: [doomed]))
+        try session.discardStash(doomed.id)
+
+        // Index 5 no longer exists — appending is better than trapping.
+        try session.restoreStash(doomed, at: 5)
+
+        #expect(session.stashes.map(\.body) == ["消す"])
+    }
+
     // MARK: - discarding the editor
 
     @Test("エディタを破棄すると内容もアクティブ下書きも消える")

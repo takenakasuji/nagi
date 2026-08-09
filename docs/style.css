@@ -1,0 +1,473 @@
+/* ==========================================================================
+   Nagi 配布サイト
+   1. トークン  2. リセット  3. タイポグラフィ  4. レイアウト
+   5. ヒーローと CTA  6. 入力窓のモック  7. フォーカスとモーション
+   ========================================================================== */
+
+/* 1. トークン ------------------------------------------------------------ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg:              #FFFFFF;
+  --bg-subtle:       #F5F5F7;
+  --label:           #1D1D1F;
+  --label-secondary: #68686D;
+  --separator:       rgba(0, 0, 0, .10);
+  --accent:          #0060DF;
+  --accent-fill:     #0060DF;
+  --accent-on-fill:  #FFFFFF;
+  --material:        rgba(255, 255, 255, .72);
+  --material-edge:   rgba(0, 0, 0, .10);
+  --hero-from:       #EAF1F8;
+  --hero-to:         #FFFFFF;
+  --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .13);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+               "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --step--1: .875rem;   /* 14px 補足 */
+  --step-0:  1.0625rem; /* 17px 本文 */
+  --step-1:  1.375rem;  /* 22px h3 */
+  --step-2:  2rem;      /* 32px h2 */
+  --step-3:  3rem;      /* 48px h1 */
+
+  --wrap: 60rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:              #1C1C1E;
+    --bg-subtle:       #000000;
+    --label:           #F5F5F7;
+    --label-secondary: #A1A1A6;
+    --separator:       rgba(255, 255, 255, .14);
+    --accent:          #0A84FF;
+    --accent-fill:     #0A6ADF;
+    --material:        rgba(58, 58, 60, .66);
+    --material-edge:   rgba(255, 255, 255, .14);
+    --hero-from:       #16202B;
+    --hero-to:         #1C1C1E;
+    --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .55);
+  }
+}
+
+/* 2. リセット ------------------------------------------------------------ */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
+  font-weight: 400;
+  line-height: 1.75;
+  color: var(--label);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+svg { display: block; max-width: 100%; }
+ul, ol { list-style: none; padding: 0; }
+
+a {
+  color: var(--accent);
+  text-underline-offset: .2em;
+}
+
+/* 3. タイポグラフィ ------------------------------------------------------ */
+
+h1, h2, h3 {
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: .01em;
+  text-wrap: balance;
+}
+
+h1 { font-size: clamp(2.25rem, 1.5rem + 3.2vw, var(--step-3)); font-weight: 700; }
+h2 { font-size: clamp(1.625rem, 1.2rem + 1.9vw, var(--step-2)); }
+h3 { font-size: var(--step-1); }
+
+p { text-wrap: pretty; }
+
+code, kbd, pre { font-family: var(--font-mono); }
+/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.brew）の中に
+   入ると em が掛かって 13.1px まで落ちる。max() で 14px を床にする。 */
+code { font-size: max(var(--step--1), .9375em); }
+
+kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  margin-inline: .0625em;
+  padding: .1em .45em;
+  border: 1px solid var(--separator);
+  border-bottom-width: 2px;
+  border-radius: .375em;
+  background: var(--bg);
+  font-size: var(--step--1);
+  font-weight: 500;
+  line-height: 1.7;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 4. レイアウト ---------------------------------------------------------- */
+
+.wrap {
+  width: min(100% - 2.5rem, var(--wrap));
+  margin-inline: auto;
+}
+
+section { padding-block: clamp(3.5rem, 9vw, 6.5rem); }
+.band   { background: var(--bg-subtle); }
+
+.section__head { max-width: 44rem; margin-bottom: clamp(2rem, 4vw, 3rem); }
+.section__lead { margin-top: .75rem; color: var(--label-secondary); }
+
+/* カード（原則・制限） */
+
+.cards {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+.card {
+  padding: 1.75rem;
+  border: 1px solid var(--separator);
+  border-radius: 1rem;
+  background: var(--bg);
+}
+
+.card h3 { margin-bottom: .625rem; }
+.card p  { color: var(--label-secondary); }
+
+/* キー操作の表 */
+
+.keys__scroll { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+caption {
+  padding-bottom: .875rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+  text-align: left;
+}
+
+th, td {
+  padding: .875rem 1rem;
+  border-bottom: 1px solid var(--separator);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+th {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+
+td:first-child { white-space: nowrap; }
+
+/* インストール手順 */
+
+.steps { counter-reset: step; display: grid; gap: 1.75rem; }
+
+.steps > li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 1rem;
+}
+
+.steps > li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--accent-on-fill);
+  font-size: var(--step--1);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.steps h3 { font-size: var(--step-0); font-weight: 600; }
+.steps p  { margin-top: .375rem; color: var(--label-secondary); }
+
+/* ソースからビルド */
+
+.build {
+  margin-top: 2.5rem;
+  padding: .5rem 1.25rem 1.25rem;
+  border: 1px solid var(--separator);
+  border-radius: .75rem;
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.build p { margin-bottom: .875rem; color: var(--label-secondary); }
+
+pre {
+  overflow-x: auto;
+  padding: 1rem 1.25rem;
+  border-radius: .625rem;
+  background: var(--bg-subtle);
+  font-size: var(--step--1);
+  line-height: 1.8;
+}
+
+.band pre { background: var(--bg); }
+
+.brew {
+  margin-top: 1.5rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+}
+
+/* footer */
+
+.footer {
+  padding-block: 2.5rem;
+  border-top: 1px solid var(--separator);
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+}
+
+.footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.25rem;
+  justify-content: center;
+}
+
+/* 5. ヒーローと CTA ------------------------------------------------------ */
+
+.hero {
+  padding-block: clamp(4rem, 10vw, 7rem) clamp(3rem, 8vw, 5rem);
+  background: linear-gradient(180deg, var(--hero-from), var(--hero-to));
+  text-align: center;
+}
+
+.hero__mark {
+  width: 4rem;
+  height: 4rem;
+  margin-inline: auto;
+  color: var(--accent);
+}
+
+.hero h1 { margin-top: 1.25rem; }
+
+.hero__ruby {
+  font-size: .5em;
+  font-weight: 500;
+  color: var(--label-secondary);
+}
+
+.hero__lead {
+  margin-top: .75rem;
+  font-size: clamp(1.125rem, 1rem + .6vw, 1.375rem);
+  font-weight: 500;
+}
+
+.hero__sub {
+  max-width: 38rem;
+  margin: 1.25rem auto 0;
+  color: var(--label-secondary);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  justify-content: center;
+  margin-top: 2.25rem;
+}
+
+.hero__meta {
+  margin-top: 1.125rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  border-radius: 999px;
+  font-size: var(--step-0);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.btn--primary {
+  background: var(--accent-fill);
+  color: var(--accent-on-fill);
+}
+
+.btn--secondary {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+@media (hover: hover) {
+  .btn--primary:hover   { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
+  /* secondary の hover は --bg を敷いて枠を太くする。却下した案が 2 つある:
+     (1) accent を 8% ティント — ダークの安静時が 4.51:1 しかなく、同じ色相を
+         重ねるだけで 4.11:1 まで落ちる。
+     (2) accent-fill の塗りに変える — コントラストは通るが、隣の primary の
+         安静時と画素単位で同一になり、主従の区別が消える。
+     --bg なら文字色のコントラストは安静時より上がり（グラデ上の 4.93 / 4.51 →
+     5.62 / 4.66）、primary とも見分けがつく。 */
+  .btn--secondary:hover {
+    background: var(--bg);
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
+}
+
+/* 6. 入力窓のモック ------------------------------------------------------ */
+
+/* モックが乗る面。窓は .hero ではなく .showcase の中にあり、この面が単色だと
+   backdrop-filter が視覚的に何もしない（ライトでは白地に白い窓になる）。
+   ヒーローの下端 --hero-to から続けて、窓が乗る帯を --hero-from で塗る。
+   specs/contrast.py は材質を --hero-from の上で合成した色で測っているので、
+   この背景がその前提を成立させている（帯は窓の上下端を覆う必要がある）。 */
+.showcase {
+  background: linear-gradient(
+    180deg,
+    var(--hero-to),
+    var(--hero-from) 22%,
+    var(--hero-from) 88%,
+    var(--bg)
+  );
+}
+
+.mock__win {
+  max-width: 41.25rem; /* 660px */
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--material-edge);
+  border-radius: .75rem;
+  background: var(--material);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* backdrop-filter が無い環境では、半透明のままだと文字のコントラストが
+   保証できない。不透明の --bg に落とす（--material の素の色ではない）。 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mock__win { background: var(--bg); }
+}
+
+.mock__name {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem .875rem .625rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+  font-weight: 500;
+}
+
+/* 入力済みのファイル名の後ろに、実際に付く拡張子を薄く見せる。
+   アプリが名前欄に描いているものと同じ。 */
+.mock__hint { opacity: .55; }
+
+.mock__rule { height: 1px; background: var(--separator); }
+
+.mock__body {
+  min-height: 9rem;
+  padding: .625rem .75rem;
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+}
+
+.mock__bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .75rem;
+}
+
+.mock__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .25rem .5rem;
+  border-radius: .3125rem;
+  color: var(--label-secondary);
+  font-size: .75rem;
+  white-space: nowrap;
+}
+
+.mock__chip--primary {
+  background: var(--accent-fill);
+  color: var(--accent-on-fill);
+  font-weight: 500;
+}
+
+.mock__spacer { flex: 1; }
+
+figcaption {
+  margin-top: 1rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+  text-align: center;
+}
+
+/* 7. フォーカスとモーション ---------------------------------------------- */
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* リングは outline-offset で要素の外に出す。塗りの CTA の上に同色で描くと
+   見えなくなるため。
+
+   border-radius をここで指定しないこと。詳細度が .btn と同じで後に来るため
+   ピル型（999px）を上書きし、Tab した瞬間にボタンが角丸長方形に変形する。
+   outline は元々要素自身の border-radius に沿うので、指定する必要がない。 */
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero > .wrap > * {
+    animation: rise .7s cubic-bezier(.2, .7, .3, 1) backwards;
+  }
+
+  .hero__mark    { animation-delay: 0s; }
+  .hero h1       { animation-delay: .06s; }
+  .hero__lead    { animation-delay: .12s; }
+  .hero__sub     { animation-delay: .18s; }
+  .hero__actions { animation-delay: .24s; }
+  .hero__meta    { animation-delay: .30s; }
+}
+
+/* スクロール駆動の演出は入れない。
+   `animation: rise linear both` + `animation-timeline: view()` +
+   `animation-range: entry 10% cover 28%` を実際に動かしたところ、Chrome で
+   ビューポート内に完全に入っている要素が opacity 0 のままになった
+   （原則セクション、インストール手順、制限セクションが丸ごと空白になる）。
+   そもそも animation-timeline は Chrome 系しか実装しておらず、macOS 向けの
+   このサイトでは大半の訪問者に効かない。読ませることが目的のページで、
+   一部のブラウザだけ本文を消す仕掛けは割に合わない。動きはヒーローの
+   入場だけに留める。 */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(.75rem); }
+  to   { opacity: 1; transform: none; }
+}

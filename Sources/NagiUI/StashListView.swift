@@ -20,9 +20,11 @@ struct StashListView: View {
             Text("退避した下書きはありません")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+            // 10pt .tertiary measured ~1.9:1 — below the minimum size *and*
+            // the minimum contrast at once.
             Text("⌘⇧S で書きかけを退避できます")
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -30,13 +32,17 @@ struct StashListView: View {
     private var list: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(session.stashes) { draft in
+                ForEach(Array(session.stashes.enumerated()), id: \.element.id) { index, draft in
                     StashRow(
                         draft: draft,
                         onOpen: { env.openStash(draft.id) },
                         onDiscard: { env.discardStash(draft.id) }
                     )
-                    Divider().padding(.leading, 12)
+                    // Separators go *between* rows; one after the last row just
+                    // draws a stray line across the bottom of the list.
+                    if index < session.stashes.count - 1 {
+                        Divider().padding(.leading, 12)
+                    }
                 }
             }
         }
@@ -52,33 +58,54 @@ private struct StashRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(draft.displayTitle)
-                    .font(.system(size: 12))
-                    .lineLimit(1)
-                Text(Self.relativeFormatter.localizedString(for: draft.updatedAt, relativeTo: Date()))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer(minLength: 4)
-
-            if isHovering {
-                Button(role: .destructive, action: onDiscard) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11))
+            // A real Button rather than .onTapGesture: a tap gesture takes no
+            // focus and exposes no action, which left this list operable by
+            // pointer only.
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 2) {
+                    // Stated rather than inherited, so the title's contrast does
+                    // not depend on what the surrounding button style supplies.
+                    Text(draft.displayTitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    // 10pt .tertiary measured ~1.9:1 — under the minimum size
+                    // and the minimum contrast at the same time.
+                    Text(Self.relativeFormatter.localizedString(
+                        for: draft.updatedAt, relativeTo: Date()
+                    ))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-                .help("この下書きを破棄")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .help("この下書きを開く")
+
+            // Always present, so it has a place in the focus order and the
+            // accessibility tree; only its opacity follows the pointer.
+            Button(role: .destructive, action: onDiscard) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.borderless)
+            .frame(width: 22, height: 22)   // desktop minimum control size is 20x20pt
+            .opacity(isHovering ? 1 : 0)
+            .help("この下書きを破棄")
+            .accessibilityLabel("「\(draft.displayTitle)」を破棄")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(isHovering ? Color.primary.opacity(0.06) : .clear)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onOpen)
         .onHover { isHovering = $0 }
+        // A second, deliberate route to a destructive action that otherwise
+        // depends on hitting a small target that has only just faded in.
+        .contextMenu {
+            Button("開く", action: onOpen)
+            Button("破棄", role: .destructive, action: onDiscard)
+        }
     }
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {

@@ -131,6 +131,15 @@ public final class DraftSession {
         try persist(activeDraft: isCurrentEmpty ? nil : currentDraft)
     }
 
+    /// Put a discarded draft back where it was, so a discard can be undone.
+    ///
+    /// The index is clamped: by the time the user takes back a discard the list
+    /// may have shrunk, and appending is a better answer than trapping.
+    public func restoreStash(_ draft: Draft, at index: Int) throws {
+        stashes.insert(draft, at: min(max(index, 0), stashes.count))
+        try persist(activeDraft: isCurrentEmpty ? nil : currentDraft)
+    }
+
     /// Throw away whatever is in the editor.
     public func discardCurrent() throws {
         resetBuffer()

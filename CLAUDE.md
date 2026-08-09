@@ -68,6 +68,10 @@ These encode bugs that were found the hard way. Changing them will reintroduce t
 
 **Nagi owns its Settings window (`SettingsWindowController`) instead of using SwiftUI's `Settings` scene.** For an `.accessory` app, clicking a menu bar item never activates the app, and neither `SettingsLink` nor `openSettings()` calls `NSApp.activate` — the window is created and `isVisible`, but sits behind whatever the user was using, which reads as "nothing happened". Call `NSApp.activate` **synchronously** before fronting: the main dispatch queue is not serviced during menu tracking, so an async hop from a menu action is deferred until the menu closes.
 
+**Inline feedback (`ui.inform` / `ui.warn`) must be set *before* `hideCaptureWindow()`, and `showCaptureWindow()` clears it.** Setting it after the hide meant nothing could ever render the message, and it then survived into the next summon — a fresh, empty note greeting the user with "保存しました: foo.md". `AppEnvironment.beginAction()` is the single place that clears stale feedback (and expires the discard-undo offer).
+
+**The capture panel's close button is routed through `windowShouldClose` to `AppEnvironment.hideCaptureWindow()`, returning `false`.** `.closable` is in the style mask, so without the delegate the red button calls `close()` directly and becomes a second hide path that skips `suspend()` — the exact bug the rule above was written for.
+
 **The hotkey recorder's `NSEvent` local monitor is scoped to the window that armed it.** A local monitor sees every key press in the app, and returning `nil` starves the rest of the app of it — without the guard, arming the recorder and then summoning the capture window leaves it unable to accept a single character.
 
 ### macOS gotchas verified in this project
@@ -76,6 +80,8 @@ These encode bugs that were found the hard way. Changing them will reintroduce t
 - **A missing menu bar icon is usually the notch.** When the menu bar is full on a notched MacBook, the newest item is pushed into the notch (`NSScreen.auxiliaryTopLeftArea.maxX` … `auxiliaryTopRightArea.minX`) and macOS draws nothing there and gives no overflow indicator. Not a bug. README has the workarounds.
 - **Hotkey conflicts with third-party apps are undetectable.** `RegisterEventHotKey` returns success even when Alfred/Raycast already own the combination. Every hotkey library has this ceiling; surface it to the user rather than trying to defeat it.
 - **Activation and z-order cannot be measured while the screen is locked** (`CGSSessionScreenIsLocked`). Known-good paths report `isActive=false`, so readings are meaningless in both directions. Check the lock before trusting such a measurement.
+- **`NSView.cacheDisplay` cannot render a popover's text while the screen is locked.** Vibrant text blends against a backdrop that is never composited, so `.primary` (and any un-coloured) text comes out blank while `.secondary` still draws — which reads convincingly as "the view is broken". Verified with a popover containing nothing but four `Text`s. `screencapture` returns pure black under the same condition. Confirm the instrument can see known-good text before believing a blank render.
+- **SwiftUI installs a full main menu for a `MenuBarExtra`-only `.accessory` app**, including Edit with ⌘Z/⌘X/⌘C/⌘V/⌘A — so copy, paste and undo work in the editor even though no menu bar is displayed (key equivalents still dispatch through `NSApp.mainMenu`). There is no File menu, so **⌘S and ⌘W are never dispatched**; both are handled in `performKeyEquivalent` instead.
 
 ## Testing
 
