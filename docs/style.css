@@ -109,3 +109,142 @@ kbd {
   text-align: center;
   white-space: nowrap;
 }
+
+/* 4. レイアウト ---------------------------------------------------------- */
+
+.wrap {
+  width: min(100% - 2.5rem, var(--wrap));
+  margin-inline: auto;
+}
+
+section { padding-block: clamp(3.5rem, 9vw, 6.5rem); }
+.band   { background: var(--bg-subtle); }
+
+.section__head { max-width: 44rem; margin-bottom: clamp(2rem, 4vw, 3rem); }
+.section__lead { margin-top: .75rem; color: var(--label-secondary); }
+
+/* カード（原則・制限） */
+
+.cards {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+.card {
+  padding: 1.75rem;
+  border: 1px solid var(--separator);
+  border-radius: 1rem;
+  background: var(--bg);
+}
+
+.card h3 { margin-bottom: .625rem; }
+.card p  { color: var(--label-secondary); }
+
+/* キー操作の表 */
+
+.keys__scroll { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+caption {
+  padding-bottom: .875rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+  text-align: left;
+}
+
+th, td {
+  padding: .875rem 1rem;
+  border-bottom: 1px solid var(--separator);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+th {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+
+td:first-child { white-space: nowrap; }
+
+/* インストール手順 */
+
+.steps { counter-reset: step; display: grid; gap: 1.75rem; }
+
+.steps > li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 1rem;
+}
+
+.steps > li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--accent-on-fill);
+  font-size: var(--step--1);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.steps h3 { font-size: var(--step-0); font-weight: 600; }
+.steps p  { margin-top: .375rem; color: var(--label-secondary); }
+
+/* ソースからビルド */
+
+.build {
+  margin-top: 2.5rem;
+  padding: .5rem 1.25rem 1.25rem;
+  border: 1px solid var(--separator);
+  border-radius: .75rem;
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.build p { margin-bottom: .875rem; color: var(--label-secondary); }
+
+pre {
+  overflow-x: auto;
+  padding: 1rem 1.25rem;
+  border-radius: .625rem;
+  background: var(--bg-subtle);
+  font-size: var(--step--1);
+  line-height: 1.8;
+}
+
+.band pre { background: var(--bg); }
+
+.brew {
+  margin-top: 1.5rem;
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+}
+
+/* footer */
+
+.footer {
+  padding-block: 2.5rem;
+  border-top: 1px solid var(--separator);
+  color: var(--label-secondary);
+  font-size: var(--step--1);
+}
+
+.footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.25rem;
+  justify-content: center;
+}
