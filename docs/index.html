@@ -43,12 +43,12 @@
 
 <section class="showcase" aria-labelledby="showcase-h">
   <div class="wrap">
-    <div class="section__head reveal">
+    <div class="section__head">
       <h2 id="showcase-h">押すと、出る</h2>
       <p class="section__lead">どのアプリの上にいても <kbd>⌥</kbd><kbd>Space</kbd>。画面の中央に窓が開いて、カーソルはもう本文にある。</p>
     </div>
 
-    <figure class="mock reveal">
+    <figure class="mock">
       <div class="mock__win">
         <div class="mock__name">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
@@ -76,21 +76,21 @@
 
 <section class="band" aria-labelledby="principles-h">
   <div class="wrap">
-    <div class="section__head reveal">
+    <div class="section__head">
       <h2 id="principles-h">しないことが、3 つある</h2>
       <p class="section__lead">機能を足さないことで速さを守っている。</p>
     </div>
 
     <ul class="cards" role="list">
-      <li class="card reveal">
+      <li class="card">
         <h3>アプリに AI は入っていない</h3>
         <p>要約も分類もタグ付けもしない。責務は「捕まえて、置く」だけ。整理はあとから Claude Code や Obsidian に任せる。だから待ち時間がなく、オフラインでも書ける。</p>
       </li>
-      <li class="card reveal">
+      <li class="card">
         <h3>既存のファイルを上書きしない</h3>
         <p>同じ名前のファイルがあれば <code>名前-2.md</code> のように連番を付けて別ファイルにする。うっかり同じ名前で保存しても、前に書いたものは残る。</p>
       </li>
-      <li class="card reveal">
+      <li class="card">
         <h3>書きかけが消えない</h3>
         <p><kbd>Esc</kbd> で閉じても内容は残り、次に開くと続きから書ける。保存しないメモは何件でも退避でき、一覧から再開も破棄もできる。</p>
       </li>
@@ -100,12 +100,12 @@
 
 <section aria-labelledby="keys-h">
   <div class="wrap">
-    <div class="section__head reveal">
+    <div class="section__head">
       <h2 id="keys-h">キーボードだけで完結する</h2>
       <p class="section__lead">マウスに手を伸ばす場面がない。ホットキーは設定で変えられる。</p>
     </div>
 
-    <div class="keys__scroll reveal">
+    <div class="keys__scroll">
       <table>
         <caption>Nagi のキー操作一覧</caption>
         <thead>
@@ -126,11 +126,11 @@
 
 <section class="band" aria-labelledby="install-h">
   <div class="wrap">
-    <div class="section__head reveal">
+    <div class="section__head">
       <h2 id="install-h">インストール</h2>
     </div>
 
-    <ol class="steps reveal" role="list">
+    <ol class="steps" role="list">
       <li>
         <div>
           <h3>ダウンロードして解凍する</h3>
@@ -172,25 +172,25 @@ cp -R build/Nagi.app /Applications/</code></pre>
 
 <section class="limits" aria-labelledby="limits-h">
   <div class="wrap">
-    <div class="section__head reveal">
+    <div class="section__head">
       <h2 id="limits-h">正直な制限</h2>
       <p class="section__lead">先に知っておいてもらったほうがいいことです。</p>
     </div>
 
     <ul class="cards" role="list">
-      <li class="card reveal">
+      <li class="card">
         <h3>ホットキーの衝突は検出できないことがある</h3>
         <p>macOS は、他のアプリが同じ組み合わせを握っていても登録を成功として返すことがあります。Alfred や Raycast と重なって反応しないときは、設定で別のキーに変えてください。</p>
       </li>
-      <li class="card reveal">
+      <li class="card">
         <h3>ad-hoc 署名</h3>
         <p>初回だけ右クリック →「開く」が必要です。Developer ID による署名と公証はしていません。</p>
       </li>
-      <li class="card reveal">
+      <li class="card">
         <h3>非サンドボックス</h3>
         <p>保存先はパスとして保持しています。App Store では配布していません。</p>
       </li>
-      <li class="card reveal">
+      <li class="card">
         <h3>メニューバーのアイコンが見えないことがある</h3>
         <p>ノッチ付きの MacBook でメニューバーが埋まっていると、後から起動したアプリのアイコンはノッチに押し出されて見えなくなります。macOS はそこに何も描かず、あふれた印も出しません。アイコンは存在していて、機能もしています（<kbd>⌥</kbd><kbd>Space</kbd> は効きます）。</p>
       </li>
