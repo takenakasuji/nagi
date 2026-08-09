@@ -92,7 +92,9 @@ h3 { font-size: var(--step-1); }
 p { text-wrap: pretty; }
 
 code, kbd, pre { font-family: var(--font-mono); }
-code { font-size: .9375em; }
+/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.brew）の中に
+   入ると em が掛かって 13.1px まで落ちる。max() で 14px を床にする。 */
+code { font-size: max(var(--step--1), .9375em); }
 
 kbd {
   display: inline-block;
