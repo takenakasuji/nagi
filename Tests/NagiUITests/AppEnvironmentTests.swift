@@ -11,6 +11,10 @@ private final class StubWindow: CaptureWindowPresenting {
     var showCount = 0
     var hideCount = 0
 
+    /// Lets a test observe the world *at the moment* the window is hidden —
+    /// needed to pin down that feedback is set before the window goes away.
+    var onHide: (@MainActor () -> Void)?
+
     func show() {
         showCount += 1
         isVisible = true
@@ -19,6 +23,7 @@ private final class StubWindow: CaptureWindowPresenting {
     func hide() {
         hideCount += 1
         isVisible = false
+        onHide?()
     }
 }
 
@@ -40,6 +45,12 @@ private final class StubHotkey: GlobalHotkeyRegistering {
     }
 }
 
+/// Collects the folders the app asked Finder to reveal.
+@MainActor
+private final class StubRevealer {
+    var revealed: [URL] = []
+}
+
 /// Builds an environment with every side effect stubbed out.
 @MainActor
 private struct Harness {
@@ -47,6 +58,7 @@ private struct Harness {
     let window = StubWindow()
     let hotkey = StubHotkey()
     let settings = StubSettings()
+    let revealer = StubRevealer()
     let notesDir: URL
     let scratch: URL
 
@@ -63,10 +75,12 @@ private struct Harness {
         }
 
         let picked = pickerReturns
+        let recorder = revealer
         env = AppEnvironment(
             preferences: preferences,
             store: StashStore(fileURL: scratch.appendingPathComponent("state.json")),
-            directoryPicker: { picked }
+            directoryPicker: { picked },
+            folderRevealer: { recorder.revealed.append($0) }
         )
         env.start(window: window, hotkey: hotkey, settings: settings)
     }
@@ -196,6 +210,201 @@ struct AppEnvironmentTests {
         h.env.chooseNotesDirectory()
 
         #expect(h.env.hasNotesDirectory == false)
+    }
+
+    @Test("保存先未設定でも、フォルダを選べたらそのまま保存まで進む")
+    func saveFallsThroughAfterChoosingDirectory() {
+        let picked = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("FallThrough-\(UUID().uuidString)")
+        let h = Harness(configureNotesDirectory: false, pickerReturns: picked)
+        defer {
+            h.cleanUp()
+            try? FileManager.default.removeItem(at: picked)
+        }
+
+        h.env.session.filename = "初回"
+        h.env.session.body = "本文"
+        h.env.save()
+
+        // ⌘Enter twice is friction the user should not have to discover.
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: picked.path)) ?? []
+        #expect(names == ["初回.md"])
+        #expect(h.window.hideCount == 1)
+    }
+
+    // MARK: feedback
+
+    @Test("保存の知らせはウインドウを隠す前に立てる")
+    func saveMessageIsSetBeforeHiding() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        var messageAtHide: CaptureUIState.Message?
+        h.window.onHide = { messageAtHide = h.env.ui.message }
+
+        h.env.session.filename = "順序"
+        h.env.session.body = "本文"
+        h.env.save()
+
+        // Setting it after the hide meant nothing could ever render it.
+        #expect(messageAtHide?.kind == .info)
+        #expect(messageAtHide?.text.contains("順序.md") == true)
+    }
+
+    @Test("ウインドウを開くと前回の知らせは持ち越さない")
+    func showingClearsStaleMessage() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.filename = "前回"
+        h.env.session.body = "本文"
+        h.env.save()
+        #expect(h.env.ui.message != nil)
+
+        h.env.showCaptureWindow()
+
+        // Otherwise a brand new, empty note greets the user with "保存しました".
+        #expect(h.env.ui.message == nil)
+    }
+
+    @Test("編集中のメモがあるままスタッシュを開いたら、退避したことを知らせる")
+    func openStashAnnouncesTheSwap() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "先に退避したもの"
+        h.env.stash()
+        let id = h.env.session.stashes[0].id
+        h.env.session.body = "いま書いていた分"
+
+        h.env.openStash(id)
+
+        #expect(h.env.session.body == "先に退避したもの")
+        #expect(h.env.session.stashes.map(\.body) == ["いま書いていた分"])
+        #expect(h.env.ui.message?.kind == .info)
+        #expect(h.env.ui.message?.text.contains("退避") == true)
+    }
+
+    @Test("編集中が空ならスタッシュを開いても余計な知らせは出さない")
+    func openStashStaysQuietWhenEditorEmpty() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "退避済み"
+        h.env.stash()
+        let id = h.env.session.stashes[0].id
+
+        h.env.openStash(id)
+
+        #expect(h.env.ui.message == nil)
+    }
+
+    @Test("新規メモで書きかけを退避したときは知らせる")
+    func newNoteAnnouncesTheStash() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "書きかけ"
+        h.env.newNote()
+
+        #expect(h.env.ui.message?.kind == .info)
+        #expect(h.env.ui.message?.text.contains("退避") == true)
+    }
+
+    // MARK: undoing a discard
+
+    @Test("破棄したスタッシュは元の位置に戻せる")
+    func discardedStashCanBeUndone() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "古い方"
+        h.env.stash()
+        h.env.session.body = "新しい方"
+        h.env.stash()
+        // Newest first, so index 1 is 古い方.
+        let id = h.env.session.stashes[1].id
+
+        h.env.discardStash(id)
+        #expect(h.env.session.stashes.map(\.body) == ["新しい方"])
+        #expect(h.env.canUndoDiscard)
+
+        h.env.undoDiscardStash()
+
+        #expect(h.env.session.stashes.map(\.body) == ["新しい方", "古い方"])
+        #expect(h.env.canUndoDiscard == false)
+    }
+
+    @Test("破棄したら取り消せることを知らせる")
+    func discardOffersUndo() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "消す"
+        h.env.stash()
+        h.env.discardStash(h.env.session.stashes[0].id)
+
+        #expect(h.env.ui.message?.kind == .info)
+        #expect(h.env.canUndoDiscard)
+    }
+
+    @Test("別の操作をしたら破棄の取り消しはもう出さない")
+    func undoExpiresOnTheNextAction() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.body = "消す"
+        h.env.stash()
+        h.env.discardStash(h.env.session.stashes[0].id)
+        #expect(h.env.canUndoDiscard)
+
+        h.env.session.body = "次の作業"
+        h.env.stash()
+
+        // Offering an undo long after the fact restores something unexpected.
+        #expect(h.env.canUndoDiscard == false)
+    }
+
+    // MARK: revealing the notes folder
+
+    @Test("保存先を Finder で開ける")
+    func revealsNotesDirectory() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.revealNotesDirectory()
+
+        // Compare paths: Preferences hands back a URL flagged as a directory,
+        // which differs from the test's URL only by a trailing slash.
+        #expect(h.revealer.revealed.map(\.path) == [h.notesDir.path])
+    }
+
+    @Test("保存先が未設定なら Finder は開かない")
+    func revealDoesNothingWithoutNotesDirectory() {
+        let h = Harness(configureNotesDirectory: false)
+        defer { h.cleanUp() }
+
+        h.env.revealNotesDirectory()
+
+        #expect(h.revealer.revealed.isEmpty)
+    }
+
+    // MARK: discarding the editor
+
+    @Test("編集中のメモを破棄できる")
+    func discardCurrentEmptiesTheEditor() {
+        let h = Harness()
+        defer { h.cleanUp() }
+
+        h.env.session.filename = "要らない"
+        h.env.session.body = "書いたが要らない"
+
+        h.env.discardCurrent()
+
+        #expect(h.env.session.body.isEmpty)
+        #expect(h.env.session.filename.isEmpty)
+        #expect(h.env.session.store.load().activeDraft == nil)
+        #expect(h.env.ui.focusRequest?.field == .body)
     }
 
     // MARK: stashing

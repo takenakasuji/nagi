@@ -16,6 +16,7 @@ public final class AppEnvironment {
     public let ui = CaptureUIState()
 
     @ObservationIgnored private let directoryPicker: DirectoryPicker
+    @ObservationIgnored private let folderRevealer: FolderRevealer
     @ObservationIgnored private var window: CaptureWindowPresenting?
     @ObservationIgnored private var hotkeyRegistrar: GlobalHotkeyRegistering?
     @ObservationIgnored private var settingsWindow: SettingsWindowPresenting?
@@ -27,10 +28,12 @@ public final class AppEnvironment {
     public init(
         preferences: Preferences,
         store: StashStore,
-        directoryPicker: @escaping DirectoryPicker
+        directoryPicker: @escaping DirectoryPicker,
+        folderRevealer: @escaping FolderRevealer
     ) {
         self.preferences = preferences
         self.directoryPicker = directoryPicker
+        self.folderRevealer = folderRevealer
         // Until a folder is configured the session points at a placeholder;
         // `save()` refuses to run while `hasNotesDirectory` is false, so nothing
         // is ever written there.
@@ -103,9 +106,20 @@ public final class AppEnvironment {
         ui.inform("保存先: \((url.path as NSString).abbreviatingWithTildeInPath)")
     }
 
+    /// Shows the notes folder in Finder — the next step of the workflow this app
+    /// deliberately stops short of.
+    public func revealNotesDirectory() {
+        guard let url = preferences.notesDirectory else { return }
+        folderRevealer(url)
+    }
+
     // MARK: - window
 
     public func showCaptureWindow() {
+        // Feedback from the previous session must not survive into this one:
+        // a fresh, empty note greeting the user with "保存しました" reads as if
+        // they had just saved something.
+        beginAction()
         window?.show()
     }
 
@@ -142,15 +156,29 @@ public final class AppEnvironment {
 
     // MARK: - actions
 
-    /// ⌘Enter. Guides rather than failing silently: no folder → picker,
+    /// Clears the transient feedback a previous action left behind.
+    ///
+    /// The undo offer expires here too: taking back a discard long after the
+    /// fact would restore something the user is no longer thinking about.
+    private func beginAction() {
+        ui.clearMessage()
+        lastDiscarded = nil
+    }
+
+    /// ⌘Enter / ⌘S. Guides rather than failing silently: no folder → picker,
     /// no filename → focus the name field, and the text is never lost.
     public func save() {
-        ui.clearMessage()
+        beginAction()
 
-        guard hasNotesDirectory else {
-            ui.warn("先に保存先フォルダを選んでください")
+        if !hasNotesDirectory {
+            // Carry on into the save once a folder is chosen. Returning here
+            // meant the user had to press ⌘Enter a second time for no reason
+            // they could see.
             chooseNotesDirectory()
-            return
+            guard hasNotesDirectory else {
+                ui.warn("先に保存先フォルダを選んでください")
+                return
+            }
         }
         guard !session.isCurrentEmpty else {
             ui.warn("メモが空です")
@@ -160,8 +188,10 @@ public final class AppEnvironment {
         do {
             let url = try session.save()
             ui.isStashListVisible = false
-            hideCaptureWindow()
+            // Before hiding, not after: once the window is gone nothing can
+            // render the message, and it lingers into the next session.
             ui.inform("保存しました: \(url.lastPathComponent)")
+            hideCaptureWindow()
         } catch NoteWriterError.emptyFilename {
             ui.warn("ファイル名を入れてください")
             ui.focusRequest = .filename
@@ -172,7 +202,7 @@ public final class AppEnvironment {
 
     /// ⌘⇧S. Keeps the window open so the user can start the next note.
     public func stash() {
-        ui.clearMessage()
+        beginAction()
         guard !session.isCurrentEmpty else {
             ui.warn("退避するものがありません")
             return
@@ -186,29 +216,61 @@ public final class AppEnvironment {
         }
     }
 
+    /// Loads a stashed draft. Anything already in the editor is parked rather
+    /// than dropped — say so, because otherwise the swap is silent.
     public func openStash(_ id: UUID) {
-        ui.clearMessage()
+        beginAction()
+        let hadWorkInProgress = !session.isCurrentEmpty
         try? session.openStash(id)
         ui.isStashListVisible = false
         ui.focusRequest = .body
+        if hadWorkInProgress {
+            ui.inform("編集中のメモは退避しました")
+        }
     }
 
+    // MARK: - discarding
+
+    /// The last discarded stash and where it sat, so the discard can be undone.
+    /// A discarded draft exists nowhere on disk, so without this it is gone.
+    private var lastDiscarded: (draft: Draft, index: Int)?
+
+    public var canUndoDiscard: Bool { lastDiscarded != nil }
+
     public func discardStash(_ id: UUID) {
+        ui.clearMessage()
+        guard let index = session.stashes.firstIndex(where: { $0.id == id }) else { return }
+        let draft = session.stashes[index]
+
         try? session.discardStash(id)
+        lastDiscarded = (draft, index)
+        ui.inform("「\(draft.displayTitle)」を破棄しました")
+    }
+
+    public func undoDiscardStash() {
+        guard let (draft, index) = lastDiscarded else { return }
+        lastDiscarded = nil
+        try? session.restoreStash(draft, at: index)
+        ui.inform("破棄を取り消しました")
     }
 
     public func discardCurrent() {
+        beginAction()
         try? session.discardCurrent()
-        ui.clearMessage()
         ui.focusRequest = .body
     }
 
     /// Menu "新規メモ": park anything in progress rather than dropping it, then
     /// open a clean editor.
     public func newNote() {
-        if !session.isCurrentEmpty {
+        let hadWorkInProgress = !session.isCurrentEmpty
+        if hadWorkInProgress {
             try? session.stash()
         }
         showCaptureWindow()
+        // After showing: showCaptureWindow() clears stale feedback.
+        if hadWorkInProgress {
+            ui.inform("編集中のメモは退避しました")
+        }
     }
 }

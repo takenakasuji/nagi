@@ -13,15 +13,20 @@ struct NagiApp: App {
 
     var body: some Scene {
         MenuBarExtra("Nagi", systemImage: "wind") {
-            Button("新規メモ") { env.newNote() }
+            // The global hotkey is the primary way in, and it is invisible
+            // everywhere else until the user opens Settings. Show it here.
+            Button("新規メモ（\(env.hotkeyDisplay)）") { env.newNote() }
             Button("退避した下書き") {
                 env.ui.isStashListVisible = true
                 env.showCaptureWindow()
             }
+            Button("編集中のメモを破棄") { env.discardCurrent() }
 
             Divider()
 
-            if !env.hasNotesDirectory {
+            if env.hasNotesDirectory {
+                Button("保存先を Finder で開く") { env.revealNotesDirectory() }
+            } else {
                 Button("保存先フォルダを選ぶ…") { env.chooseNotesDirectory() }
             }
             Button("設定…") { env.showSettings() }
@@ -49,6 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let env = AppDelegate.environment
         if !env.hasNotesDirectory {
             env.chooseNotesDirectory()
+            // Choosing a folder used to be the whole of first run: the panel
+            // closed and nothing else happened, leaving no way to discover the
+            // hotkey the app is driven by. Open the window once and name it.
+            if env.hasNotesDirectory {
+                env.showCaptureWindow()
+                env.ui.inform("\(env.hotkeyDisplay) でいつでも呼び出せます")
+            }
         }
     }
 

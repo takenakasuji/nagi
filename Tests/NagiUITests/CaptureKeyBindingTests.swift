@@ -43,6 +43,16 @@ struct CaptureKeyBindingTests {
         #expect(command(",", 43, [.command]) == .settings)
     }
 
+    @Test("⌘S も保存（テキストを書くアプリで最も反射的に押される）")
+    func commandSSaves() {
+        #expect(command("s", 1, [.command]) == .save)
+    }
+
+    @Test("⌘S は日本語入力中でもキーコードで拾える")
+    func commandSWorksWithIME() {
+        #expect(command("と", 1, [.command]) == .save)
+    }
+
     // MARK: things that must NOT match
 
     @Test("修飾なしの Return は素通し（改行を奪わない）")
@@ -50,9 +60,9 @@ struct CaptureKeyBindingTests {
         #expect(command("\r", 36, []) == nil)
     }
 
-    @Test("⌘S だけでは退避しない")
+    @Test("⌘S は退避ではない（退避は ⇧ が要る）")
     func commandSAloneIsNotStash() {
-        #expect(command("s", 1, [.command]) == nil)
+        #expect(command("s", 1, [.command]) != .stash)
     }
 
     @Test("通常の編集ショートカットは奪わない")
@@ -115,5 +125,44 @@ struct CaptureKeyBindingTests {
     func incidentalFlagsAreIgnored() {
         #expect(command("\r", 36, [.command, .capsLock]) == .save)
         #expect(command("S", 1, [.command, .shift, .function]) == .stash)
+    }
+}
+
+/// The settings window has to close itself: SwiftUI's generated menu for a
+/// MenuBarExtra-only app has no File menu, so ⌘W is never dispatched.
+@Suite("SettingsKeyBinding")
+struct SettingsKeyBindingTests {
+    private func closes(
+        _ characters: String?,
+        _ keyCode: UInt16,
+        _ modifiers: NSEvent.ModifierFlags
+    ) -> Bool {
+        SettingsKeyBinding.closes(characters: characters, keyCode: keyCode, modifiers: modifiers)
+    }
+
+    @Test("⌘W で閉じる")
+    func commandWCloses() {
+        #expect(closes("w", 13, [.command]))
+    }
+
+    @Test("⌘W は日本語入力中でもキーコードで拾える")
+    func commandWWorksWithIME() {
+        #expect(closes("て", 13, [.command]))
+    }
+
+    @Test("修飾なしの W では閉じない")
+    func plainWDoesNotClose() {
+        #expect(closes("w", 13, []) == false)
+    }
+
+    @Test("余計な修飾キーが付いていたら閉じない")
+    func extraModifiersDoNotClose() {
+        #expect(closes("w", 13, [.command, .shift]) == false)
+        #expect(closes("w", 13, [.command, .option]) == false)
+    }
+
+    @Test("⌘Q は奪わない（終了はアプリメニューの仕事）")
+    func commandQPassesThrough() {
+        #expect(closes("q", 12, [.command]) == false)
     }
 }

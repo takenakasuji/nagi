@@ -36,3 +36,9 @@ public protocol GlobalHotkeyRegistering: AnyObject {
 /// Injected because the real implementation runs a modal `NSOpenPanel`, which
 /// would block a test run.
 public typealias DirectoryPicker = @MainActor () -> URL?
+
+/// Shows a folder in Finder.
+///
+/// Injected for the same reason as the picker: the real implementation reaches
+/// out to another app, which a test has no business doing.
+public typealias FolderRevealer = @MainActor (URL) -> Void

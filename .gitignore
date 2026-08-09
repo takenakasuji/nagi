@@ -13,5 +13,6 @@ build/
 .claude/settings.local.json
 .claude/skills/
 
-# ブレインストーミングの視覚コンパニオン
+# ブレインストーミングの視覚コンパニオンと、
+# subagent-driven-development の進捗台帳（どちらもローカル作業用）
 .superpowers/

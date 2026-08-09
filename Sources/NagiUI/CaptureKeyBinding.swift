@@ -66,6 +66,12 @@ enum CaptureKeyBinding {
             if keyCode == 36 || keyCode == 76 || chars == "\r" || chars == "\u{3}" {
                 return .save
             }
+            // ⌘S too: it is the most reflexive keystroke there is in a text
+            // editor, and nothing else in this app claims it. Matched by key
+            // code as well, because a Japanese IME does not yield "s".
+            if keyCode == 1 || chars == "s" {
+                return .save
+            }
             if keyCode == 43 || chars == "," {
                 return .settings
             }
@@ -78,5 +84,43 @@ enum CaptureKeyBinding {
         }
 
         return nil
+    }
+}
+
+/// Matches the key press that dismisses the settings window.
+///
+/// SwiftUI's generated main menu for a `MenuBarExtra`-only app has an Edit menu
+/// but no File menu, so ⌘W is never dispatched and the window would otherwise be
+/// closable only by clicking its red button.
+///
+/// Escape is handled separately, via `cancelOperation`. Not because it is exempt
+/// from the key-equivalent stage — a bare Escape does reach it, measured; see the
+/// Escape rule in `CLAUDE.md` — but because the settings window's view tree has no
+/// `.cancelAction` button to claim it there, so `performKeyEquivalent` finds no
+/// taker and the event carries on to ordinary `keyDown` dispatch. The capture
+/// panel *does* have such a button, which is why Escape takes a different route
+/// there.
+enum SettingsKeyBinding {
+    static func closes(for event: NSEvent) -> Bool {
+        closes(
+            characters: event.charactersIgnoringModifiers,
+            keyCode: event.keyCode,
+            modifiers: event.modifierFlags
+        )
+    }
+
+    static func closes(
+        characters: String?,
+        keyCode: UInt16,
+        modifiers: NSEvent.ModifierFlags
+    ) -> Bool {
+        let mods = modifiers
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad])
+
+        guard mods == [.command] else { return false }
+        // Key code 13 is W; also match the character, and accept neither being
+        // the Latin letter when a Japanese IME is active.
+        return keyCode == 13 || (characters ?? "").lowercased() == "w"
     }
 }
