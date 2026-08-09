@@ -252,10 +252,15 @@ struct MarkdownTextView: NSViewRepresentable {
 
         /// Replaces the document with a value that came from the model.
         ///
-        /// Any conversion in flight ends here, and it is the assignment inside
-        /// `replaceDocument` that ends it: measured, `textView.string = …` clears
-        /// the marked state even on a first responder with a live input context,
-        /// and posts exactly one `textDidChange` carrying the new string. Neither
+        /// The text view's marked state ends here, and it is the assignment
+        /// inside `replaceDocument` that ends it: measured, `textView.string = …`
+        /// clears the marked state even on a first responder with a live input
+        /// context, and posts exactly one `textDidChange` carrying the new
+        /// string. What was *not* observed is the input method's own session —
+        /// a test binary cannot get a key window, so whether the IME also tears
+        /// its session down is unmeasured. The worst case if it does not is a
+        /// reading carried over into the new document, which is cosmetic; the
+        /// model side is correct either way. Neither
         /// of the two obvious ways to be explicit about it survives contact with
         /// a measurement — `unmarkText()` *commits* the reading into the old
         /// document and leaves the following assignment silent, and
