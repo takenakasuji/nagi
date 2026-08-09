@@ -12,3 +12,6 @@ build/
 # Claude Code: 個人設定と、それ自身が git リポジトリである clone 済みスキル
 .claude/settings.local.json
 .claude/skills/
+
+# ブレインストーミングの視覚コンパニオン
+.superpowers/
