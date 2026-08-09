@@ -88,10 +88,117 @@ public enum MarkdownHighlighting {
         return u[i] == ASCII.space
     }
 
-    // MARK: - inline level (Task 3 で埋める)
+    // MARK: - inline level
 
+    /// Scans one line's inline constructs left to right in a single pass.
+    ///
+    /// One pass is what keeps the spans from overlapping, and it is also why
+    /// code wins over emphasis without a rule saying so: the opening backtick is
+    /// simply reached first, and the scan resumes past the closing one.
     private static func inlineSpans(_ u: [UInt16], from: Int, lineStart: Int) -> [MarkdownSpan] {
-        []
+        var spans: [MarkdownSpan] = []
+        var i = from
+
+        while i < u.count {
+            switch u[i] {
+            case ASCII.backtick:
+                if let close = index(of: ASCII.backtick, in: u, after: i) {
+                    append(&spans, lineStart + i, lineStart + i + 1, .marker)
+                    append(&spans, lineStart + i + 1, lineStart + close, .code)
+                    append(&spans, lineStart + close, lineStart + close + 1, .marker)
+                    i = close + 1
+                    continue
+                }
+            case ASCII.openBracket:
+                if let link = linkSpans(u, at: i, lineStart: lineStart) {
+                    spans += link.spans
+                    i = link.end
+                    continue
+                }
+            case ASCII.asterisk, ASCII.underscore:
+                if let emphasis = emphasisSpans(u, at: i, lineStart: lineStart) {
+                    spans += emphasis.spans
+                    i = emphasis.end
+                    continue
+                }
+            default:
+                break
+            }
+            i += 1
+        }
+
+        return spans
+    }
+
+    /// `[label](url)` — all three pieces must be present on the line.
+    private static func linkSpans(
+        _ u: [UInt16],
+        at open: Int,
+        lineStart: Int
+    ) -> (spans: [MarkdownSpan], end: Int)? {
+        guard let closeBracket = index(of: ASCII.closeBracket, in: u, after: open),
+              closeBracket + 1 < u.count,
+              u[closeBracket + 1] == ASCII.openParen,
+              let closeParen = index(of: ASCII.closeParen, in: u, after: closeBracket + 1)
+        else { return nil }
+
+        var spans: [MarkdownSpan] = []
+        append(&spans, lineStart + open, lineStart + open + 1, .marker)
+        append(&spans, lineStart + open + 1, lineStart + closeBracket, .linkText)
+        append(&spans, lineStart + closeBracket, lineStart + closeBracket + 2, .marker)
+        append(&spans, lineStart + closeBracket + 2, lineStart + closeParen, .linkURL)
+        append(&spans, lineStart + closeParen, lineStart + closeParen + 1, .marker)
+        return (spans, closeParen + 1)
+    }
+
+    /// `**bold**` / `*italic*` / `__…__` / `_…_`.
+    ///
+    /// Only the delimiters get a span. The text between them keeps the body
+    /// colour, because the editor never changes weight — a bold run would be the
+    /// one place where a line's height moves as you type.
+    private static func emphasisSpans(
+        _ u: [UInt16],
+        at open: Int,
+        lineStart: Int
+    ) -> (spans: [MarkdownSpan], end: Int)? {
+        let delimiter = u[open]
+        let width = (open + 1 < u.count && u[open + 1] == delimiter) ? 2 : 1
+        let contentStart = open + width
+        guard contentStart < u.count,
+              let close = closingRun(of: delimiter, width: width, in: u, from: contentStart),
+              close > contentStart
+        else { return nil }
+
+        var spans: [MarkdownSpan] = []
+        append(&spans, lineStart + open, lineStart + contentStart, .marker)
+        append(&spans, lineStart + close, lineStart + close + width, .marker)
+        return (spans, close + width)
+    }
+
+    private static func closingRun(
+        of delimiter: UInt16,
+        width: Int,
+        in u: [UInt16],
+        from: Int
+    ) -> Int? {
+        var i = from
+        while i < u.count {
+            if u[i] == delimiter {
+                if width == 1 { return i }
+                if i + 1 < u.count, u[i + 1] == delimiter { return i }
+            }
+            i += 1
+        }
+        return nil
+    }
+
+    private static func index(of unit: UInt16, in u: [UInt16], after i: Int) -> Int? {
+        var j = i + 1
+        while j < u.count {
+            if u[j] == unit { return j }
+            j += 1
+        }
+        return nil
     }
 
     private static func append(

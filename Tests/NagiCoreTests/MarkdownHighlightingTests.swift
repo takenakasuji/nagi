@@ -67,3 +67,74 @@ struct MarkdownHighlightingTests {
         #expect(MarkdownHighlighting.spans(in: "\n\n").isEmpty)
     }
 }
+
+@Suite("Markdown の色付け（インライン）")
+struct MarkdownInlineHighlightingTests {
+    @Test("インラインコードは記号と中身に分かれる")
+    func highlightsInlineCode() {
+        #expect(MarkdownHighlighting.spans(in: "`ls` を実行") == [
+            MarkdownSpan(range: 0..<1, token: .marker),
+            MarkdownSpan(range: 1..<3, token: .code),
+            MarkdownSpan(range: 3..<4, token: .marker),
+        ])
+    }
+
+    @Test("閉じていないバッククォートは無視する")
+    func ignoresUnclosedBacktick() {
+        #expect(MarkdownHighlighting.spans(in: "`まだ閉じてない").isEmpty)
+    }
+
+    @Test("リンクはラベルと URL で色が分かれる")
+    func highlightsLink() {
+        #expect(MarkdownHighlighting.spans(in: "[設計](https://a.example)") == [
+            MarkdownSpan(range: 0..<1, token: .marker),     // [
+            MarkdownSpan(range: 1..<3, token: .linkText),   // 設計
+            MarkdownSpan(range: 3..<5, token: .marker),     // ](
+            MarkdownSpan(range: 5..<22, token: .linkURL),   // https://a.example
+            MarkdownSpan(range: 22..<23, token: .marker),   // )
+        ])
+    }
+
+    @Test("() が続かない [] はリンクではない")
+    func bracketsWithoutParensAreNotALink() {
+        #expect(MarkdownHighlighting.spans(in: "[ただの角括弧]").isEmpty)
+    }
+
+    @Test("強調は記号だけを弱め、中身は地の色のまま")
+    func highlightsEmphasisMarkersOnly() {
+        #expect(MarkdownHighlighting.spans(in: "名前は **Nagi** で確定") == [
+            MarkdownSpan(range: 4..<6, token: .marker),
+            MarkdownSpan(range: 10..<12, token: .marker),
+        ])
+    }
+
+    @Test("閉じていない強調は無視する")
+    func ignoresUnclosedEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "**書きかけ").isEmpty)
+    }
+
+    @Test("リスト記号のアスタリスクは強調と誤認しない")
+    func bulletAsteriskIsNotEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "* 項目 * 続き")
+                == [MarkdownSpan(range: 0..<2, token: .marker)])
+    }
+
+    @Test("コードの中の記号は強調にならない")
+    func codeWinsOverEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "`a * b * c`") == [
+            MarkdownSpan(range: 0..<1, token: .marker),
+            MarkdownSpan(range: 1..<10, token: .code),
+            MarkdownSpan(range: 10..<11, token: .marker),
+        ])
+    }
+
+    @Test("リスト項目の中身もインライン走査される")
+    func scansInsideListItems() {
+        #expect(MarkdownHighlighting.spans(in: "- `x` を確認") == [
+            MarkdownSpan(range: 0..<2, token: .marker),
+            MarkdownSpan(range: 2..<3, token: .marker),
+            MarkdownSpan(range: 3..<4, token: .code),
+            MarkdownSpan(range: 4..<5, token: .marker),
+        ])
+    }
+}
