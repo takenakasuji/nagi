@@ -180,5 +180,51 @@ struct MarkdownTextView: NSViewRepresentable {
             parent.text = textView.string
             MarkdownTextViewHighlighting.apply(to: textView)
         }
+
+        /// Return / Tab / ⇧Tab を Core のルールに投げ、`TextEdit` が返れば適用する。
+        ///
+        /// `false` を返すと `NSTextView` の既定に落ちる。「リスト行以外は今までどおり」
+        /// を保つのがこの分岐の役目。
+        func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            // 変換中のキーは入力メソッドのもの。Return は変換の確定に使われる。
+            guard !textView.hasMarkedText() else { return false }
+
+            // 選択範囲があるときの Return / Tab は「置き換え」であって
+            // リストの操作ではない。既定に任せる。
+            let selection = textView.selectedRange()
+            guard selection.length == 0 else { return false }
+
+            let edit: TextEdit?
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                edit = MarkdownLineEditing.newline(in: textView.string, caret: selection.location)
+            case #selector(NSResponder.insertTab(_:)):
+                edit = MarkdownLineEditing.indent(in: textView.string,
+                                                  caret: selection.location, outdent: false)
+            case #selector(NSResponder.insertBacktab(_:)):
+                edit = MarkdownLineEditing.indent(in: textView.string,
+                                                  caret: selection.location, outdent: true)
+            default:
+                return false
+            }
+
+            guard let edit else { return false }
+            return apply(edit, to: textView)
+        }
+
+        /// `shouldChangeText` / `didChangeText` を通す。
+        ///
+        /// 通さないと編集が undo スタックに乗らず、リストの継続が ⌘Z で取り消せない
+        /// ——「勝手に入った記号を消せない」という、いちばん苛立つ壊れ方になる。
+        private func apply(_ edit: TextEdit, to textView: NSTextView) -> Bool {
+            let range = NSRange(location: edit.range.lowerBound, length: edit.range.count)
+            guard textView.shouldChangeText(in: range, replacementString: edit.replacement) else {
+                return false
+            }
+            textView.textStorage?.replaceCharacters(in: range, with: edit.replacement)
+            textView.didChangeText()
+            textView.setSelectedRange(NSRange(location: edit.caret, length: 0))
+            return true
+        }
     }
 }

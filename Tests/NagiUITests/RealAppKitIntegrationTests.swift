@@ -501,6 +501,106 @@ struct RealAppKitIntegrationTests {
         #expect(storage.attribute(.foregroundColor, at: 10, effectiveRange: nil) as? NSColor
                 == MarkdownTheme.color(for: .linkURL))
     }
+    /// 実際の text view に delegate を繋いで、キー由来のコマンドを流し込む。
+    ///
+    /// ウインドウに載せるのは undo のため。`NSResponder.undoManager` は responder
+    /// chain を辿って `NSWindow` から取るので、宙に浮いた view では nil になり
+    /// ⌘Z が検証できない。
+    private func makeBodyEditor(text: String, caret: Int)
+        -> (panel: CapturePanel, view: NagiTextView, coordinator: MarkdownTextView.Coordinator) {
+        let panel = CapturePanel(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        // 本文の書き戻し先はこれらのテストでは見ない（判定はすべて view.string）ので、
+        // 束縛は定数で足りる。
+        let representable = MarkdownTextView(text: .constant(""), focusToken: nil, onCancel: {})
+        let coordinator = representable.makeCoordinator()
+
+        let view = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        view.delegate = coordinator
+        view.allowsUndo = true
+        panel.contentView?.addSubview(view)
+        view.string = text
+        view.setSelectedRange(NSRange(location: caret, length: 0))
+        return (panel, view, coordinator)
+    }
+
+    @Test("本文で Return を押すと箇条書きが引き継がれる")
+    func returnContinuesBullet() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 来週リリース", caret: 8)
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertNewline(_:))))
+        #expect(editor.view.string == "- 来週リリース\n- ")
+        #expect(editor.view.selectedRange().location == 11)
+    }
+
+    @Test("空の項目で Return を押すとリストを抜ける")
+    func returnOnEmptyItemLeavesTheList() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 親\n- ", caret: 6)
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertNewline(_:))))
+        #expect(editor.view.string == "- 親\n")
+    }
+
+    @Test("リスト行の Tab は階層を下げ、⇧Tab は戻す")
+    func tabMovesListLevels() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 親\n- 子", caret: 7)
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertTab(_:))))
+        #expect(editor.view.string == "- 親\n  - 子")
+
+        editor.view.setSelectedRange(NSRange(location: 9, length: 0))
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertBacktab(_:))))
+        #expect(editor.view.string == "- 親\n- 子")
+    }
+
+    @Test("リストでない行の Return と Tab は横取りしない")
+    func plainLinesAreLeftAlone() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "ただのメモ", caret: 5)
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertNewline(_:))) == false)
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertTab(_:))) == false)
+        #expect(editor.view.string == "ただのメモ")
+    }
+
+    @Test("選択範囲があるときは横取りしない")
+    func selectionsAreLeftAlone() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 項目", caret: 0)
+        // マーカーの外（内容の中）を選択する。ここに caret があれば Core は
+        // 単独では継続を返す位置なので、選択ガードが外れたときに検知できる。
+        editor.view.setSelectedRange(NSRange(location: 2, length: 2))
+
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertNewline(_:))) == false)
+        #expect(editor.view.string == "- 項目")
+    }
+
+    @Test("リスト継続は ⌘Z で 1 手で取り消せる")
+    func listContinuationIsOneUndoStep() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 来週リリース", caret: 8)
+
+        _ = editor.coordinator.textView(editor.view,
+                                        doCommandBy: #selector(NSResponder.insertNewline(_:)))
+        #expect(editor.view.string == "- 来週リリース\n- ")
+
+        editor.view.undoManager?.undo()
+        #expect(editor.view.string == "- 来週リリース")
+    }
 }
 
 extension Tag {

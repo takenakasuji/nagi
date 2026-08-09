@@ -85,7 +85,7 @@ These encode bugs that were found the hard way. Changing them will reintroduce t
 
 ## Testing
 
-Test-first. All 88 tests run in under a second and the pure layers are covered thoroughly; the `RealAppKitIntegrationTests` suite exercises the actual `NSPanel`, real `RegisterEventHotKey`, and synthesised `NSEvent`s through `performKeyEquivalent`, so it needs a window server (5 of the 88).
+Test-first. All 146 tests run in under a second and the pure layers are covered thoroughly; the `RealAppKitIntegrationTests` suite exercises the actual `NSPanel`, real `RegisterEventHotKey`, and synthesised `NSEvent`s through `performKeyEquivalent`, so it needs a window server (19 of the 146).
 
 Prefer pushing logic somewhere it can be tested as a pure function — `CaptureKeyBinding` exists precisely so key-equivalent rules could be pinned down without an event loop or a real keystroke. Tests are named in Japanese, matching the UI language.
 
