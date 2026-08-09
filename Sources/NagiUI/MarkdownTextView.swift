@@ -7,11 +7,12 @@ import SwiftUI
 /// Deliberately behaviour-free. It exists so the body editor can be found by type
 /// — in `updateNSView`, and in the tests that reach into the hosted view tree.
 ///
-/// In particular it does **not** handle Escape. A bare Escape never reaches the
-/// responder chain: AppKit runs the key-equivalent stage first, where either the
-/// hidden `.cancelAction` button takes it or `CapturePanel` declines it on the
-/// input method's behalf. An override here would be dead code. See the Escape rule
-/// in `CLAUDE.md`.
+/// In particular it does **not** handle Escape. AppKit runs the key-equivalent
+/// stage first: outside an IME conversion the hidden `.cancelAction` button takes
+/// a bare Escape there, and only while composing does `CapturePanel` decline it so
+/// the event continues to the responder chain — but an override here would still
+/// have to defer to `hasMarkedText()` immediately, so it could never do anything.
+/// See the Escape rule in `CLAUDE.md`.
 final class NagiTextView: NSTextView {}
 
 /// Applies Markdown colouring to a text view's storage.

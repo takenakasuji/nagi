@@ -41,8 +41,10 @@ final class CapturePanel: NSPanel {
     /// yet.
     ///
     /// Both editors qualify: the body's `NagiTextView`, and the field editor behind
-    /// the filename `TextField` (SwiftUI hands focus to an `NSTextView` of its own).
-    /// `NSTextInputClient` is what they have in common.
+    /// the filename `TextField` (currently an `NSTextView` of SwiftUI's own, though
+    /// that's an implementation detail). `NSTextInputClient` is the protocol that
+    /// declares `hasMarkedText()`, so checking it stays correct even if SwiftUI's
+    /// field editor changes underneath.
     private var isComposing: Bool {
         (firstResponder as? NSTextInputClient)?.hasMarkedText() ?? false
     }

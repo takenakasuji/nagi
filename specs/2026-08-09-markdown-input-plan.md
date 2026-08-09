@@ -1214,6 +1214,8 @@ git commit -m "Return によるリストの自動継続を追加"
 
 ---
 
+> **注記（Task 8 で判明）:** 以下に書かれた Escape の経路（`cancelOperation:` が responder chain で受ける、という前提）は実装中に誤りと判明し、Task 8 で修正した。現行の記述は `CLAUDE.md`「Escape is taken by the SwiftUI `.cancelAction` button in `CaptureView`」の節を参照。この計画書はそのときの記録として書き換えない。
+
 ## Task 6: `MarkdownTextView` に差し替える
 
 ここで初めて画面が変わる。色は出るが、Return / Tab はまだ既定のまま（Task 7）。
