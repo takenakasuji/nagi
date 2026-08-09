@@ -10,10 +10,29 @@ struct MarkdownHighlightingTests {
                 == [MarkdownSpan(range: 0..<9, token: .heading)])
     }
 
+    @Test("見出しは 1 段から 6 段まで")
+    func headingLevelsOneThroughSix() {
+        // "# 一段" は 1 + 1 + 2 = 4 コード単位
+        #expect(MarkdownHighlighting.spans(in: "# 一段")
+                == [MarkdownSpan(range: 0..<4, token: .heading)])
+        // "###### 六段" は 6 + 1 + 2 = 9
+        #expect(MarkdownHighlighting.spans(in: "###### 六段")
+                == [MarkdownSpan(range: 0..<9, token: .heading)])
+    }
+
     @Test("空白のない # と 7 段以上は見出しではない")
     func hashWithoutSpaceIsNotHeading() {
         #expect(MarkdownHighlighting.spans(in: "#見出し").isEmpty)
         #expect(MarkdownHighlighting.spans(in: "####### 七段").isEmpty)
+    }
+
+    @Test("番号付きリストは記号だけが記号色")
+    func highlightsOrderedMarker() {
+        #expect(MarkdownHighlighting.spans(in: "1. 最初の項目")
+                == [MarkdownSpan(range: 0..<3, token: .marker)])
+        // 2 桁でも記号の幅がついてくる
+        #expect(MarkdownHighlighting.spans(in: "12. 十二番目")
+                == [MarkdownSpan(range: 0..<4, token: .marker)])
     }
 
     @Test("リストは記号だけが記号色で、中身は地の色のまま")
@@ -111,6 +130,41 @@ struct MarkdownInlineHighlightingTests {
     @Test("閉じていない強調は無視する")
     func ignoresUnclosedEmphasis() {
         #expect(MarkdownHighlighting.spans(in: "**書きかけ").isEmpty)
+    }
+
+    @Test("アンダースコアの強調も記号だけを弱める")
+    func highlightsUnderscoreEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "__太字__") == [
+            MarkdownSpan(range: 0..<2, token: .marker),
+            MarkdownSpan(range: 4..<6, token: .marker),
+        ])
+        #expect(MarkdownHighlighting.spans(in: "_斜体_") == [
+            MarkdownSpan(range: 0..<1, token: .marker),
+            MarkdownSpan(range: 3..<4, token: .marker),
+        ])
+    }
+
+    /// CommonMark は語中の `_` を強調にしない。しないと `snake_case_name` や
+    /// URL のアンダースコアが句読点色に落ちて、識別子が読みにくくなる。
+    @Test("語中のアンダースコアは強調にならない")
+    func intrawordUnderscoreIsNotEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "snake_case_name").isEmpty)
+        #expect(MarkdownHighlighting.spans(in: "https://a.example/a_b_c").isEmpty)
+        // 直前が英数字でなければ従来どおり効く（行頭以外でも）
+        #expect(MarkdownHighlighting.spans(in: "これは _強調_ です") == [
+            MarkdownSpan(range: 4..<5, token: .marker),
+            MarkdownSpan(range: 7..<8, token: .marker),
+        ])
+    }
+
+    /// `*` は語中でも効く。CommonMark が禁じているのは `_` だけで、ここを一緒に
+    /// 締めると `a*b*c` のような書き方が黙って死ぬ。
+    @Test("語中のアスタリスクは強調のまま")
+    func intrawordAsteriskStaysEmphasis() {
+        #expect(MarkdownHighlighting.spans(in: "a*b*c") == [
+            MarkdownSpan(range: 1..<2, token: .marker),
+            MarkdownSpan(range: 3..<4, token: .marker),
+        ])
     }
 
     @Test("リスト記号のアスタリスクは強調と誤認しない")

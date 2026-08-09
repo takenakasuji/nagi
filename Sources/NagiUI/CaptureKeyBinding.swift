@@ -11,7 +11,7 @@ public enum CaptureCommand: Equatable {
 ///
 /// These are handled at the `NSPanel` level rather than with SwiftUI's
 /// `.keyboardShortcut`: the shortcuts hang off zero-sized, hidden buttons, and
-/// when focus is inside the `TextEditor` (an `NSTextView`) they are not reliably
+/// when focus is inside the body editor (`NagiTextView`) they are not reliably
 /// resolved. `performKeyEquivalent(with:)` gets first refusal on the event, which
 /// is what we actually want.
 ///

@@ -17,6 +17,10 @@ public struct CaptureView: View {
     /// It gets the request's token instead and makes itself first responder.
     @State private var bodyFocusToken: UUID?
 
+    /// True while an input method is composing in the body. Reported by
+    /// `NagiTextView`, because nothing else can see it.
+    @State private var isBodyComposing = false
+
     init(session: DraftSession, ui: CaptureUIState, onRequestHide: @escaping () -> Void) {
         self.session = session
         self.ui = ui
@@ -60,7 +64,13 @@ public struct CaptureView: View {
                 .focused($focusedField, equals: .filename)
                 // Enter in the name field jumps to the body rather than saving,
                 // so a stray Return never writes a half-written note.
-                .onSubmit { focusedField = .body }
+                //
+                // It has to go through `ui.focusRequest`, not `focusedField`:
+                // nothing in the tree claims `.body` for `@FocusState` any more —
+                // the body is an `NSViewRepresentable`, which `@FocusState` does
+                // not reach — so writing `.body` there matches no view and focus
+                // simply stays put. Measured.
+                .onSubmit { ui.focusRequest = .body }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
@@ -71,10 +81,17 @@ public struct CaptureView: View {
         ZStack(alignment: .topLeading) {
             MarkdownTextView(
                 text: $session.body,
+                isComposing: $isBodyComposing,
                 focusToken: bodyFocusToken
             )
 
-            if session.body.isEmpty {
+            // Not just `session.body.isEmpty`. A Japanese conversion posts no
+            // `textDidChange`, so `body` is still "" while the reading is on
+            // screen — and the placeholder would sit directly on top of the first
+            // word the user types, same inset, same font. For a window whose
+            // primary use is "type the first word into an empty editor", that is
+            // the common case, not an edge case.
+            if session.body.isEmpty && !isBodyComposing {
                 Text("雑に書く。整理はあとで Claude に任せる。")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.tertiary)

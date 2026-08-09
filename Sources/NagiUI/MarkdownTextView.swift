@@ -2,10 +2,18 @@ import AppKit
 import NagiCore
 import SwiftUI
 
+/// UTF-16 offsets come out of `NagiCore` as `Range<Int>`; the text system wants
+/// `NSRange`. One conversion, so the two call sites cannot drift.
+extension Range where Bound == Int {
+    var nsRange: NSRange { NSRange(location: lowerBound, length: count) }
+}
+
 /// The capture window's text view.
 ///
-/// Deliberately behaviour-free. It exists so the body editor can be found by type
-/// — in `updateNSView`, and in the tests that reach into the hosted view tree.
+/// Nearly behaviour-free. It exists so the body editor can be found by type — in
+/// `updateNSView`, and in the tests that reach into the hosted view tree — and to
+/// report the one thing the text system will not: that an input method is holding
+/// text which has not been committed yet.
 ///
 /// In particular it does **not** handle Escape. AppKit runs the key-equivalent
 /// stage first: outside an IME conversion the hidden `.cancelAction` button takes
@@ -13,7 +21,32 @@ import SwiftUI
 /// the event continues to the responder chain — but an override here would still
 /// have to defer to `hasMarkedText()` immediately, so it could never do anything.
 /// See the Escape rule in `CLAUDE.md`.
-final class NagiTextView: NSTextView {}
+final class NagiTextView: NSTextView {
+    /// Called with `hasMarkedText()` whenever an input method starts, changes or
+    /// abandons a conversion.
+    ///
+    /// This exists because those transitions are invisible to everything else.
+    /// Measured: `setMarkedText` posts **no** `textDidChange` — not on the first
+    /// call, not on later ones, and not on the empty call an IME makes when the
+    /// user cancels — so the composing text never reaches the binding and
+    /// `session.body` stays `""` for the whole conversion. Anything that has to
+    /// know the editor is not visually empty (the placeholder) has to be told
+    /// from here.
+    var onCompositionChange: ((Bool) -> Void)?
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        onCompositionChange?(hasMarkedText())
+    }
+
+    /// Not the cancel path — measured, `unmarkText()` *commits* the reading into
+    /// the document and posts `textDidChange`. It is here so the flag is cleared
+    /// on every route out of a conversion, including that one.
+    override func unmarkText() {
+        super.unmarkText()
+        onCompositionChange?(hasMarkedText())
+    }
+}
 
 /// Applies Markdown colouring to a text view's storage.
 ///
@@ -28,15 +61,20 @@ enum MarkdownTextViewHighlighting {
     /// edit in both directions. If this ever shows up in a profile, narrow it
     /// then.
     static func apply(to textView: NSTextView) {
-        // Overwriting the attributes of marked text cancels the conversion on
-        // screen, so an IME in flight is left alone; the commit repaints.
+        // Belt and braces, not a live path: overwriting the attributes of marked
+        // text would cancel the conversion on screen, but nothing actually gets
+        // here mid-conversion. `setMarkedText` posts no `textDidChange` (measured),
+        // so the coordinator is never woken during one, and `replaceDocument`
+        // clears the marked state with its assignment before it calls this. Keep
+        // the guard — it costs nothing and the day some new caller does repaint
+        // during a conversion is the day it earns its keep.
         guard !textView.hasMarkedText(), let storage = textView.textStorage else { return }
 
         storage.beginEditing()
         storage.setAttributes(MarkdownTheme.bodyAttributes,
                               range: NSRange(location: 0, length: storage.length))
         for span in MarkdownHighlighting.spans(in: textView.string) {
-            let range = NSRange(location: span.range.lowerBound, length: span.range.count)
+            let range = span.range.nsRange
             guard NSMaxRange(range) <= storage.length else { continue }
             storage.addAttributes(MarkdownTheme.attributes(for: span.token), range: range)
         }
@@ -85,6 +123,12 @@ enum MarkdownTextViewHighlighting {
 /// binding it owns. Owning the view outright is the only supported path.
 struct MarkdownTextView: NSViewRepresentable {
     @Binding var text: String
+    /// True while an input method is holding an unconfirmed reading.
+    ///
+    /// `text` cannot answer this: a conversion posts no `textDidChange`, so the
+    /// binding stays `""` from the first keystroke until the user commits, even
+    /// though the editor is visibly full of text.
+    @Binding var isComposing: Bool
     /// Set by `CaptureView` when the body should take focus. The coordinator acts
     /// only on a token it has not honoured yet, so asking twice for the same
     /// field still works.
@@ -95,6 +139,9 @@ struct MarkdownTextView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NagiTextView(frame: .zero)
         textView.delegate = context.coordinator
+        textView.onCompositionChange = { [coordinator = context.coordinator] composing in
+            coordinator.parent.isComposing = composing
+        }
 
         textView.isRichText = false
         textView.allowsUndo = true
@@ -143,7 +190,18 @@ struct MarkdownTextView: NSViewRepresentable {
         // Only write back when the model changed underneath us — saving,
         // stashing, discarding, or restoring a stash. Assigning on every
         // keystroke would throw the caret to the front of the document.
-        if textView.string != text {
+        //
+        // The `hasMarkedText()` half is load-bearing, and it is *not* the same
+        // defensive guard as the one in `apply`. While an input method is
+        // converting, these two disagree by design: the reading is on screen but
+        // posts no `textDidChange`, so `text` still holds the document from
+        // before the conversion started. Reaching here used to be impossible —
+        // nothing woke SwiftUI mid-conversion — but the composing flag that keeps
+        // the placeholder off the user's first word now schedules an update on
+        // every keystroke of one. Measured without this guard: type かんじ into an
+        // empty editor and the next update pass replaces it with "", cancelling
+        // the conversion. Japanese input becomes impossible.
+        if !textView.hasMarkedText(), textView.string != text {
             MarkdownTextViewHighlighting.replaceDocument(of: textView, with: text)
         }
 
@@ -167,6 +225,10 @@ struct MarkdownTextView: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             parent.text = textView.string
+            // Committing a conversion goes through `insertText`, which clears the
+            // marked state without calling `unmarkText()` (measured) — so this is
+            // the only place that sees the end of *that* route.
+            parent.isComposing = textView.hasMarkedText()
             MarkdownTextViewHighlighting.apply(to: textView)
         }
 
@@ -183,22 +245,38 @@ struct MarkdownTextView: NSViewRepresentable {
             let selection = textView.selectedRange()
             guard selection.length == 0 else { return false }
 
-            let edit: TextEdit?
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
-                edit = MarkdownLineEditing.newline(in: textView.string, caret: selection.location)
+                guard let edit = MarkdownLineEditing.newline(in: textView.string,
+                                                             caret: selection.location)
+                else { return false }
+                return apply(edit, to: textView)
             case #selector(NSResponder.insertTab(_:)):
-                edit = MarkdownLineEditing.indent(in: textView.string,
-                                                  caret: selection.location, outdent: false)
+                return applyIndent(outdent: false, to: textView, caret: selection.location)
             case #selector(NSResponder.insertBacktab(_:)):
-                edit = MarkdownLineEditing.indent(in: textView.string,
-                                                  caret: selection.location, outdent: true)
+                return applyIndent(outdent: true, to: textView, caret: selection.location)
             default:
                 return false
             }
+        }
 
-            guard let edit else { return false }
-            return apply(edit, to: textView)
+        /// Tab / ⇧Tab. Core decides; this only carries the answer out.
+        ///
+        /// `nowhereToMove` must be swallowed. Returning `false` there lets
+        /// `NSTextView`'s default run, and its default for Tab is to insert a
+        /// literal tab character — so pressing Tab on `- 最初`, the first thing
+        /// anyone tries, would silently write an invisible `\t` into the note.
+        /// Measured: `doCommand(by: insertTab:)` with a delegate answering `false`
+        /// leaves `- 最初\t` behind.
+        private func applyIndent(outdent: Bool, to textView: NSTextView, caret: Int) -> Bool {
+            switch MarkdownLineEditing.indent(in: textView.string, caret: caret, outdent: outdent) {
+            case .notAList:
+                return false
+            case .nowhereToMove:
+                return true
+            case .edit(let edit):
+                return apply(edit, to: textView)
+            }
         }
 
         /// `shouldChangeText` / `didChangeText` を通す。
@@ -206,7 +284,7 @@ struct MarkdownTextView: NSViewRepresentable {
         /// 通さないと編集が undo スタックに乗らず、リストの継続が ⌘Z で取り消せない
         /// ——「勝手に入った記号を消せない」という、いちばん苛立つ壊れ方になる。
         private func apply(_ edit: TextEdit, to textView: NSTextView) -> Bool {
-            let range = NSRange(location: edit.range.lowerBound, length: edit.range.count)
+            let range = edit.range.nsRange
             guard textView.shouldChangeText(in: range, replacementString: edit.replacement) else {
                 return false
             }

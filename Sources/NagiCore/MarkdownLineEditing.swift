@@ -19,6 +19,25 @@ public struct TextEdit: Equatable, Sendable {
     }
 }
 
+/// What Tab / ⇧Tab amounts to on the line the caret is sitting on.
+///
+/// Two different "nothing happens" answers, which a plain `TextEdit?` cannot tell
+/// apart — and conflating them is a data-corrupting bug, not a nicety: on `- 最初`
+/// the caller would fall through to `NSTextView`'s default and append an
+/// invisible `\t` that gets written into the `.md`.
+public enum ListIndent: Equatable, Sendable {
+    /// Not a list line. The caller should do whatever it normally does with the
+    /// key — for the body editor that means inserting a tab, which is what
+    /// `TextEditor` did before this branch and what it promised to preserve.
+    case notAList
+    /// A list line with nowhere to go: the first item of a list for Tab, the
+    /// outermost level for ⇧Tab. The design says do nothing, and *nothing* means
+    /// the key is spent — the caller must swallow it rather than fall through.
+    case nowhereToMove
+    /// Move the line, applying this replacement.
+    case edit(TextEdit)
+}
+
 public enum MarkdownLineEditing {
     /// Return on a line that carries a list, task or quote marker.
     ///
@@ -53,20 +72,22 @@ public enum MarkdownLineEditing {
 
     /// Tab (`outdent: false`) or ⇧Tab (`outdent: true`) on a list line.
     ///
-    /// Returns nil when the line is not a list item, or when there is nowhere to
-    /// move — the caller then lets the text view do whatever it normally does.
-    public static func indent(in text: String, caret: Int, outdent: Bool) -> TextEdit? {
+    /// The decision of what the key *means* stays here; the caller only applies
+    /// what comes back. See `ListIndent` for why the two "nothing happens" cases
+    /// have to be distinguishable.
+    public static func indent(in text: String, caret: Int, outdent: Bool) -> ListIndent {
         let lines = MarkdownLines.split(text)
-        guard let index = MarkdownLines.indexOfLine(at: caret, in: lines) else { return nil }
+        guard let index = MarkdownLines.indexOfLine(at: caret, in: lines) else { return .notAList }
         let line = lines[index]
-        guard let prefix = BlockPrefix.parse(line.text), prefix.isList else { return nil }
+        guard let prefix = BlockPrefix.parse(line.text), prefix.isList else { return .notAList }
 
         guard let column = outdent
             ? outdentColumn(of: index, in: lines, prefix: prefix)
             : indentColumn(of: index, in: lines, prefix: prefix)
-        else { return nil }
+        else { return .nowhereToMove }
 
-        return rewritePrefix(of: line, prefix: prefix, to: column, at: index, in: lines, caret: caret)
+        return .edit(rewritePrefix(of: line, prefix: prefix, to: column,
+                                   at: index, in: lines, caret: caret))
     }
 
     // MARK: - shared with Return

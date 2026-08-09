@@ -44,7 +44,7 @@
 | `NagiUI/MarkdownTextView.swift` | `NSViewRepresentable` + `NSTextView` サブクラス。上の 2 つを呼ぶだけ |
 | `NagiUI/MarkdownTheme.swift` | スパン種別 → `NSColor` |
 
-`CaptureView.bodyEditor` の `TextEditor` がこの `MarkdownTextView` に差し替わる。プレースホルダの `ZStack` オーバーレイは今のまま流用する。
+`CaptureView.bodyEditor` の `TextEditor` がこの `MarkdownTextView` に差し替わる。プレースホルダの `ZStack` オーバーレイは今のまま流用する。ただし出す条件は `session.body.isEmpty` だけでは足りない: 変換中は `textDidChange` が飛ばないので `body` は `""` のままで、プレースホルダが打ちかけの日本語の**上に**重なる。`NagiTextView` が `setMarkedText` / `unmarkText` から変換状態を報せ、その間は出さない。
 
 **オフセットは UTF-16 で統一する。** `NSTextStorage` が UTF-16 で動くので、Core も `Range<Int>`（UTF-16 単位）で返す。日本語や絵文字が入った瞬間に `String.Index` との往復でずれるのを、境界をひとつに決めて防ぐ。
 
@@ -111,13 +111,23 @@ public struct TextEdit: Equatable {
     public let caret: Int             // 置換後テキストでのカーソル位置
 }
 
+/// Tab / ⇧Tab の答え。「何も起きない」が 2 種類あるので `TextEdit?` では足りない
+public enum ListIndent: Equatable, Sendable {
+    case notAList        // リスト行ではない。呼び出し側は従来どおり（＝タブ文字）
+    case nowhereToMove   // リスト行だが動かす先がない。キーは食う（タブ文字を入れない）
+    case edit(TextEdit)
+}
+
 public enum MarkdownLineEditing {
     /// nil = 普通に改行させる
     public static func newline(in text: String, caret: Int) -> TextEdit?
-    /// nil = リスト行ではない。何もしない
-    public static func indent(in text: String, caret: Int, outdent: Bool) -> TextEdit?
+    public static func indent(in text: String, caret: Int, outdent: Bool) -> ListIndent
 }
 ```
+
+`indent` が `ListIndent` を返すのは、「リストの 1 行目では何もしない」を UI 側が
+再導出しなくて済むようにするため。両方を `nil` で返していたときは、`- 最初` で Tab を
+押すと `NSTextView` の既定が走って目に見えないタブ文字が `.md` に書き込まれていた。
 
 ### Return
 
@@ -163,7 +173,7 @@ representable は受け取ったトークンが前回と違えば `makeFirstResp
 
 **Escape** — `.cancelAction` に届く、という見立ては当たったが、経路の見立ては外れた。実測: 素の Esc は key equivalent の段（responder chain より**先**）で受け付けられ、変換中でなければ `NSHostingView` の中の `.cancelAction` ボタンがそこで消費する。変換中は `CapturePanel.performKeyEquivalent` が `super` を呼ばずに `false` を返すため隠しボタンには届かず、通常の `keyDown` 配送 → `interpretKeyEvents` を経て入力メソッドに渡る——responder chain に届くのはこの変換中の経路だけで、その経路でも `hasMarkedText()` で即座に入力メソッドへ譲るほかない。したがって `NagiTextView` に `cancelOperation` の override は**置かない**（置いてもどちらの経路でも死にコード）。テストは `RealAppKitIntegrationTests` にある。
 
-**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc も渡す**: `.cancelAction` ボタンは変換中かどうかを見ないので、そのままだと変換中の Esc で窓が閉じ、読みのまま（`漢字` ではなく `かんじ`）が下書きに残る。`CapturePanel.performKeyEquivalent` が、素の Esc かつ first responder が `hasMarkedText()` のときだけ `super` を呼ばずに `false` を返す。`super` を呼ばないので隠しボタンはこの Esc を見ず、`false` を返すので通常の `keyDown` 配送に進み、`interpretKeyEvents` から入力メソッドへ渡って変換が取り消される。判定は `firstResponder as? NSTextInputClient` で、本文の `NagiTextView` とファイル名欄のフィールドエディタ（SwiftUI の `_SystemTextFieldFieldEditor`）の両方を拾う。
+**IME** — marked text がある間は色を塗り直さず、Return / Tab も横取りしない。**Esc も渡す**: `.cancelAction` ボタンは変換中かどうかを見ないので、そのままだと変換中の Esc で窓が閉じ、**打ちかけの読みが黙って消える**。実測: `setMarkedText` は `textDidChange` を一度も飛ばさない（切り離した text view でも、キーパネルに載せて first responder にした text view でも同じ。同じ delegate が `insertText` と `string =` の通知は現に受け取っている）。つまり未確定の文字列は `session.body` に一度も届かず、`suspend()` にも残らない——残るのではなく、消える。`CapturePanel.performKeyEquivalent` が、素の Esc かつ first responder が `hasMarkedText()` のときだけ `super` を呼ばずに `false` を返す。`super` を呼ばないので隠しボタンはこの Esc を見ず、`false` を返すので通常の `keyDown` 配送に進み、`interpretKeyEvents` から入力メソッドへ渡って変換が取り消される。判定は `firstResponder as? NSTextInputClient` で、本文の `NagiTextView` とファイル名欄のフィールドエディタ（SwiftUI の `_SystemTextFieldFieldEditor`）の両方を拾う。
 
 **下書きの永続化** — `AppEnvironment.hideCaptureWindow()` のまま。今回の変更は一切触れない。
 
@@ -171,8 +181,8 @@ representable は受け取ったトークンが前回と違えば `makeFirstResp
 
 Core（ウィンドウ不要、既存 88 本と同じ速さ）:
 
-- `MarkdownHighlightingTests` — 見出し 1〜6 段、`#見出し`（空白なし）は見出しではない、`- [ ]` / `- [x]`、`1.`、`>`、インラインコード、閉じていない ```、リンク、日本語混じりでオフセットがずれないこと
-- `MarkdownLineEditingTests` — 継続、空項目でアウトデント→解除、番号 +1、`[x]` → `[ ]`、記号より手前で Return、Tab の親揃え、リスト 1 行目の Tab は無効、⇧Tab、階層変更時の番号だけ直る
+- `MarkdownHighlightingTests` — 見出し 1〜6 段、`#見出し`（空白なし）は見出しではない、`- [ ]` / `- [x]`、`1.`、`>`、インラインコード、閉じていない ```、リンク、強調（`**` / `__` / `_`）、語中の `_` は強調にしない（`*` はする）、日本語混じりでオフセットがずれないこと
+- `MarkdownLineEditingTests` — 継続、空項目でアウトデント→解除、番号 +1、`[x]` → `[ ]`、記号より手前で Return、Tab の親揃え、リスト 1 行目の Tab は `nowhereToMove`（`notAList` と区別できること）、⇧Tab、階層変更時の番号だけ直る
 
 `RealAppKitIntegrationTests`（要ウィンドウサーバ）:
 
@@ -180,6 +190,10 @@ Core（ウィンドウ不要、既存 88 本と同じ速さ）:
 - 変換中の Esc は key equivalent の段で降り、窓が閉じない（本文・ファイル名欄の両方）
 - ⌘Return がまだ `save()` に届く
 - リスト行で Tab がインデントする
+- リストの 1 行目で Tab を押してもタブ文字が入らない。リストでない行では入る（`doCommand(by:)` で既定まで通して測る）
+- 最上位の ⇧Tab は本文もフォーカスも動かさない
+- ファイル名欄の Return が本文へのフォーカス要求になる
+- 変換中は `textDidChange` が飛ばない（`insertText` の対照つき）。その報せが `NagiTextView` から出ること、本文エディタが受け取っていること、そして受け取って走る更新が変換を消さないこと
 
 テストは日本語で命名する（既存に合わせる）。
 

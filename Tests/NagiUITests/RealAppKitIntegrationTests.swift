@@ -552,7 +552,9 @@ struct RealAppKitIntegrationTests {
         )
         // 本文の書き戻し先はこれらのテストでは見ない（判定はすべて view.string）ので、
         // 束縛は定数で足りる。
-        let representable = MarkdownTextView(text: .constant(""), focusToken: nil)
+        let representable = MarkdownTextView(text: .constant(""),
+                                             isComposing: .constant(false),
+                                             focusToken: nil)
         let coordinator = representable.makeCoordinator()
 
         let view = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
@@ -655,6 +657,246 @@ struct RealAppKitIntegrationTests {
 
         editor.view.undoManager?.undo()
         #expect(editor.view.string == "- 来週リリース")
+    }
+
+    /// リストの 1 行目で Tab —— 誰でもまず試す操作。ここで delegate が `false` を
+    /// 返すと `NSTextView` の既定が走り、目に見えないタブ文字が本文に入って
+    /// そのまま `.md` に書かれる。実測: 既定は `- 最初\t` を残す。
+    ///
+    /// `doCommand(by:)` で流すのが肝で、これは delegate に訊いてから既定に落ちる
+    /// 経路（実測）。`coordinator.textView(_:doCommandBy:)` を直接呼ぶと既定が
+    /// 走らないので、タブ文字が入る／入らないを判定できない。
+    @Test("リストの 1 行目で Tab を押してもタブ文字は入らない")
+    func tabOnTheFirstListItemInsertsNothing() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 最初", caret: 4)
+
+        editor.view.doCommand(by: #selector(NSResponder.insertTab(_:)))
+
+        #expect(editor.view.string == "- 最初")
+    }
+
+    /// 裏返し。リスト行でなければ今までどおりタブ文字が入る（Task 0 で実測した
+    /// `TextEditor` の挙動を保つと決めた）。上のテストと組で、飲み込みすぎと
+    /// 素通しすぎの両方を止める。
+    @Test("リストでない行の Tab は今までどおりタブ文字を入れる")
+    func tabOnAPlainLineStillInsertsATab() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "ただのメモ", caret: 5)
+
+        editor.view.doCommand(by: #selector(NSResponder.insertTab(_:)))
+
+        #expect(editor.view.string == "ただのメモ\t")
+    }
+
+    /// 最上位の ⇧Tab。設計は「何もしない」で、こちらは Core が `nowhereToMove` を
+    /// 返すのでキーを食う。
+    ///
+    /// 後半は AppKit 側の実測を留めるためのもの: 仮に食わずに既定へ落としても、
+    /// `insertBacktab(nil)` は素の `NSTextView` では何もせず、フォーカスも動かさない
+    /// ——他に focusable な view を置いた窓でもそう。つまり今の挙動は偶然ではなく
+    /// 二重に守られている。
+    @Test("最上位の ⇧Tab は本文もフォーカスも動かさない")
+    func backtabAtTopLevelMovesNothing() {
+        bootstrapAppKit()
+        let editor = makeBodyEditor(text: "- 最上位", caret: 5)
+        // ⇧Tab がフォーカスを送る先を用意する。これが無いと「動かなかった」が
+        // 「動く先が無かった」と区別できない。
+        let neighbour = NSTextField(frame: NSRect(x: 0, y: 0, width: 100, height: 22))
+        editor.panel.contentView?.addSubview(neighbour)
+        editor.panel.makeKeyAndOrderFront(nil)
+        defer { editor.panel.orderOut(nil) }
+        #expect(editor.panel.makeFirstResponder(editor.view))
+
+        // うちのルール: キーは食う。
+        #expect(editor.coordinator.textView(editor.view,
+                                            doCommandBy: #selector(NSResponder.insertBacktab(_:))))
+
+        // AppKit の既定も無害であることの実測。
+        editor.view.insertBacktab(nil)
+        #expect(editor.view.string == "- 最上位")
+        #expect(editor.panel.firstResponder === editor.view)
+    }
+
+    /// ファイル名欄で Return を押したら本文へ移る。
+    ///
+    /// 判定が「フォーカス要求が出たこと」で止まっているのは、その先を測れないため。
+    /// `MarkdownTextView.updateNSView` は `DispatchQueue.main.async` 越しに
+    /// `makeFirstResponder` するが、`swift test` のプロセスでは main queue のブロックが
+    /// `RunLoop.run(until:)` で捌かれない（実測: `drained == false`）。つまり
+    /// first responder を見る計器は、正しく動いているときですら反応しない。
+    /// `env.ui.focusRequest = .body` を直に立てた対照でも同じだった。
+    ///
+    /// 逆に、ここが `.body` になることは意味がある: `@FocusState` の `.body` を
+    /// 名乗る view はもうツリーに居ないので、`focusedField = .body` と書くと
+    /// 何とも一致せずフォーカスは動かない。要求経路を通ったことがそのまま
+    /// 「動く経路に乗った」ことになる。
+    @Test("ファイル名欄で Return を押すと本文へのフォーカス要求が出る")
+    func returnInTheFilenameFieldRequestsBodyFocus() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        guard let field = firstDescendant(NSTextField.self, in: panel.contentView!) else {
+            Issue.record("ファイル名の NSTextField が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(field))
+        guard let fieldEditor = panel.firstResponder as? NSTextView else {
+            Issue.record("フィールドエディタが first responder になっていない")
+            return
+        }
+
+        env.ui.focusRequest = nil
+        // SwiftUI の onSubmit はここから同期で走る。run loop を回さないので
+        // CaptureView の onChange はまだ要求を消化していない。
+        fieldEditor.insertNewline(nil)
+
+        #expect(env.ui.focusRequest?.field == .body)
+    }
+
+    /// このプロジェクトが 2 か所のコメントで寄りかかっている実測。
+    ///
+    /// `setMarkedText` は `textDidChange` を**飛ばさない**。だから変換中の文字列は
+    /// binding にも `session.body` にも届かず、`suspend()` で保存されることもない
+    /// ——変換中に窓が閉じれば、読みは残るのではなく消える。プレースホルダを
+    /// `session.body.isEmpty` だけで出せないのも同じ理由。
+    ///
+    /// 対照が要る: 同じ delegate が `insertText` の通知は現に受け取っている。
+    /// 受け取れない計器で「飛んでこない」と言っても意味がない。
+    @Test("変換中は textDidChange が飛ばない（対照つき）")
+    func compositionPostsNoTextDidChange() {
+        bootstrapAppKit()
+
+        final class Spy: NSObject, NSTextViewDelegate {
+            var seen: [String] = []
+            func textDidChange(_ notification: Notification) {
+                guard let textView = notification.object as? NSTextView else { return }
+                seen.append(textView.string)
+            }
+        }
+
+        let spy = Spy()
+        let view = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        view.delegate = spy
+
+        // 対照: この delegate は通知を受け取れる。
+        view.insertText("あ", replacementRange: NSRange(location: 0, length: 0))
+        #expect(spy.seen == ["あ"])
+
+        view.string = ""
+        spy.seen.removeAll()
+
+        view.setMarkedText("かんじ",
+                           selectedRange: NSRange(location: 3, length: 0),
+                           replacementRange: NSRange(location: 0, length: 0))
+        // 画面には出ている。
+        #expect(view.string == "かんじ")
+        #expect(view.hasMarkedText())
+        // それでも delegate には何も来ない。
+        #expect(spy.seen.isEmpty)
+
+        // 変換を伸ばしても同じ。
+        view.setMarkedText("かんじへ",
+                           selectedRange: NSRange(location: 4, length: 0),
+                           replacementRange: NSRange(location: 0, length: 3))
+        #expect(view.string == "かんじへ")
+        #expect(spy.seen.isEmpty)
+
+        // 確定したときだけ、確定後の文字列で 1 回来る。
+        view.insertText("漢字へ", replacementRange: view.markedRange())
+        #expect(view.hasMarkedText() == false)
+        #expect(spy.seen == ["漢字へ"])
+    }
+
+    /// プレースホルダを退かせる信号。`textDidChange` が使えない以上、変換の開始と
+    /// 終了は `NagiTextView` から報せるほかない。
+    ///
+    /// 取り消しの経路が肝: 入力メソッドは空の `setMarkedText` で変換を捨てるので、
+    /// `unmarkText()` の override だけでは戻ってこない（`unmarkText` はむしろ
+    /// 読みを確定させる側）。
+    @Test("変換の開始と取り消しが NagiTextView から報される")
+    func compositionIsReportedByTheTextView() {
+        bootstrapAppKit()
+
+        let view = NagiTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        var reported: [Bool] = []
+        view.onCompositionChange = { reported.append($0) }
+
+        view.setMarkedText("かんじ",
+                           selectedRange: NSRange(location: 3, length: 0),
+                           replacementRange: NSRange(location: 0, length: 0))
+        #expect(reported == [true])
+
+        // 入力メソッドが変換を捨てたとき。
+        view.setMarkedText("", selectedRange: NSRange(location: 0, length: 0),
+                           replacementRange: view.markedRange())
+        #expect(reported == [true, false])
+        #expect(view.string.isEmpty)
+    }
+
+    /// 上の信号が本文エディタに実際に繋がっていること。ここが外れると
+    /// `NagiTextView` は正しく報せているのに誰も聞いていない、になる。
+    @Test("本文エディタには変換の報せ先が繋がっている")
+    func theBodyEditorListensForComposition() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        guard let textView = firstDescendant(NagiTextView.self, in: panel.contentView!) else {
+            Issue.record("NagiTextView が view tree に無い")
+            return
+        }
+        #expect(textView.onCompositionChange != nil)
+    }
+
+    /// 空のエディタに日本語を打ち始められること。この分岐でいちばん壊れやすい所。
+    ///
+    /// 変換の報せは SwiftUI の状態を書き換えるので、変換のキー 1 打ごとに
+    /// `updateNSView` が走るようになった。そこの書き戻しは `textView.string` と
+    /// binding の食い違いで判定するが、変換中は食い違っているのが正常
+    /// （`textDidChange` が飛ばないので `session.body` は空のまま）。
+    /// `hasMarkedText()` で降りないと、打った「かんじ」が次の更新で "" に
+    /// 差し替わって変換が消える —— 日本語が 1 文字も打てなくなる。実測済み。
+    @Test("空のエディタで変換を始めても、更新で読みが消えない")
+    func compositionSurvivesTheSwiftUIUpdate() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        guard let textView = firstDescendant(NagiTextView.self, in: panel.contentView!) else {
+            Issue.record("NagiTextView が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(textView))
+        #expect(env.session.body.isEmpty)
+
+        textView.setMarkedText("かんじ",
+                               selectedRange: NSRange(location: 3, length: 0),
+                               replacementRange: NSRange(location: 0, length: 0))
+        #expect(textView.string == "かんじ")
+
+        // SwiftUI に更新を 1 周させる。
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        #expect(textView.string == "かんじ")
+        #expect(textView.hasMarkedText())
+        // 変換中は本文に届かないまま（＝プレースホルダを body で判定できない理由）
+        #expect(env.session.body.isEmpty)
     }
 }
 

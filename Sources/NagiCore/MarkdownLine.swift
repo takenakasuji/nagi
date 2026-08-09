@@ -18,12 +18,16 @@ enum ASCII {
     static let zero: UInt16 = 0x30
     static let nine: UInt16 = 0x39
     static let greaterThan: UInt16 = 0x3E
+    static let upperA: UInt16 = 0x41
     static let upperX: UInt16 = 0x58
+    static let upperZ: UInt16 = 0x5A
     static let openBracket: UInt16 = 0x5B
     static let closeBracket: UInt16 = 0x5D
     static let underscore: UInt16 = 0x5F
     static let backtick: UInt16 = 0x60
+    static let lowerA: UInt16 = 0x61
     static let lowerX: UInt16 = 0x78
+    static let lowerZ: UInt16 = 0x7A
 }
 
 /// One line of the document, positioned in UTF-16 code units.

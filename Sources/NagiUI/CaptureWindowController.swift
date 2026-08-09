@@ -21,12 +21,17 @@ final class CapturePanel: NSPanel {
     /// Escape hides the window from anywhere, the body included.
     ///
     /// The button does not look at marked text, so mid-conversion that same walk
-    /// would close the window and persist the unconfirmed reading (`かんじ` instead
-    /// of `漢字`). Hence the guard: while the first responder is composing, do
-    /// **not** call `super` — that is what keeps the button from seeing the event —
-    /// and return `false` so AppKit carries on to ordinary `keyDown` dispatch,
-    /// where `interpretKeyEvents` hands Escape to the input method and the
-    /// conversion is cancelled. See the Escape rule in `CLAUDE.md`.
+    /// would take a keystroke the user meant for the input method and close the
+    /// window with it — and the half-typed reading would be **thrown away**, not
+    /// kept: `setMarkedText` posts no `textDidChange` (measured, on a detached
+    /// view and on a hosted first-responder one, against a delegate that
+    /// demonstrably sees `insertText`), so an uncommitted `かんじ` never reaches
+    /// `session.body` and `suspend()` has nothing to persist. Hence the guard:
+    /// while the first responder is composing, do **not** call `super` — that is
+    /// what keeps the button from seeing the event — and return `false` so AppKit
+    /// carries on to ordinary `keyDown` dispatch, where `interpretKeyEvents` hands
+    /// Escape to the input method and only the conversion is cancelled. See the
+    /// Escape rule in `CLAUDE.md`.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if CaptureKeyBinding.isBareEscape(event), isComposing { return false }
 

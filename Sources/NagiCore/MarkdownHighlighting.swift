@@ -162,6 +162,12 @@ public enum MarkdownHighlighting {
         lineStart: Int
     ) -> (spans: [MarkdownSpan], end: Int)? {
         let delimiter = u[open]
+        // CommonMark forbids intraword `_`, and it is right to: without this,
+        // `snake_case_name` and half the URLs anyone pastes come out with their
+        // underscores greyed down to punctuation. `*` keeps working mid-word.
+        if delimiter == ASCII.underscore, open > 0, isASCIIAlphanumeric(u[open - 1]) {
+            return nil
+        }
         let width = (open + 1 < u.count && u[open + 1] == delimiter) ? 2 : 1
         let contentStart = open + width
         guard contentStart < u.count,
@@ -190,6 +196,15 @@ public enum MarkdownHighlighting {
             i += 1
         }
         return nil
+    }
+
+    /// ASCII only, deliberately. The identifiers and URLs this protects are
+    /// ASCII, and widening it to every Unicode letter would mean decoding
+    /// surrogate pairs on the hot path of a repaint that runs on every keystroke.
+    private static func isASCIIAlphanumeric(_ unit: UInt16) -> Bool {
+        (unit >= ASCII.zero && unit <= ASCII.nine)
+            || (unit >= ASCII.upperA && unit <= ASCII.upperZ)
+            || (unit >= ASCII.lowerA && unit <= ASCII.lowerZ)
     }
 
     private static func index(of unit: UInt16, in u: [UInt16], after i: Int) -> Int? {
