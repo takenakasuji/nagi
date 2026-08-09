@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nagi（凪）— AI 時代のメモ帳</title>
+<meta name="description" content="macOS のメニューバーに常駐するクイックキャプチャアプリ。ホットキーで窓を出し、思考を止めずに書き、指定フォルダに .md を吐く。">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://takenakasuji.github.io/nagi/">
+<meta property="og:title" content="Nagi（凪）— AI 時代のメモ帳">
+<meta property="og:description" content="雑に書いて、速く貯める。macOS のメニューバー常駐クイックキャプチャ。">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="hero__mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img"
+         aria-labelledby="nagi-mark-title" fill="none" stroke="currentColor"
+         stroke-width="3.5" stroke-linecap="round">
+      <title id="nagi-mark-title">Nagi のロゴ — 凪いだ水面を渡る風</title>
+      <path d="M4 16h24a6 6 0 1 0-6-6"/>
+      <path d="M4 24h30a6 6 0 1 1-6 6"/>
+      <path d="M4 32h18"/>
+    </svg>
+
+    <h1>Nagi<span class="hero__ruby">（凪）</span></h1>
+    <p class="hero__lead">AI 時代のメモ帳。雑に書いて、速く貯める。</p>
+    <p class="hero__sub">ホットキーで窓を出し、思考を止めずに書き、指定フォルダに <code>.md</code> を吐く。整理・リネーム・構造化は、あとから Claude Code や Obsidian に任せる。</p>
+
+    <div class="hero__actions">
+      <a class="btn btn--primary" href="https://github.com/takenakasuji/nagi/releases/latest">ダウンロード</a>
+      <a class="btn btn--secondary" href="https://github.com/takenakasuji/nagi">GitHub で見る</a>
+    </div>
+
+    <p class="hero__meta">macOS 14 Sonoma 以降 · 無料 · MIT ライセンス</p>
+  </div>
+</header>
+
+<main>
+
+<section class="showcase" aria-labelledby="showcase-h">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <h2 id="showcase-h">押すと、出る</h2>
+      <p class="section__lead">どのアプリの上にいても <kbd>⌥</kbd><kbd>Space</kbd>。画面の中央に窓が開いて、カーソルはもう本文にある。</p>
+    </div>
+
+    <figure class="mock reveal">
+      <div class="mock__win">
+        <div class="mock__name">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+               stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9.5 1.5H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V5.5z"/>
+            <path d="M9.5 1.5v4h4M5.5 8.5h5M5.5 11h5"/>
+          </svg>
+          <span>ファイル名（.md は自動）</span>
+        </div>
+        <div class="mock__rule"></div>
+        <div class="mock__body">雑に書く。整理はあとで Claude に任せる。</div>
+        <div class="mock__rule"></div>
+        <div class="mock__bar">
+          <span class="mock__chip">退避</span>
+          <span class="mock__chip">設定</span>
+          <span class="mock__spacer"></span>
+          <span class="mock__chip">退避 ⌘⇧S</span>
+          <span class="mock__chip mock__chip--primary">保存 ⌘↩</span>
+        </div>
+      </div>
+      <figcaption>入力窓は 660 × 440。ファイル名、本文、下のツールバーだけ。</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="principles-h">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <h2 id="principles-h">しないことが、3 つある</h2>
+      <p class="section__lead">機能を足さないことで速さを守っている。</p>
+    </div>
+
+    <ul class="cards" role="list">
+      <li class="card reveal">
+        <h3>アプリに AI は入っていない</h3>
+        <p>要約も分類もタグ付けもしない。責務は「捕まえて、置く」だけ。整理はあとから Claude Code や Obsidian に任せる。だから待ち時間がなく、オフラインでも書ける。</p>
+      </li>
+      <li class="card reveal">
+        <h3>既存のファイルを上書きしない</h3>
+        <p>同じ名前のファイルがあれば <code>名前-2.md</code> のように連番を付けて別ファイルにする。うっかり同じ名前で保存しても、前に書いたものは残る。</p>
+      </li>
+      <li class="card reveal">
+        <h3>書きかけが消えない</h3>
+        <p><kbd>Esc</kbd> で閉じても内容は残り、次に開くと続きから書ける。保存しないメモは何件でも退避でき、一覧から再開も破棄もできる。</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="keys-h">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <h2 id="keys-h">キーボードだけで完結する</h2>
+      <p class="section__lead">マウスに手を伸ばす場面がない。ホットキーは設定で変えられる。</p>
+    </div>
+
+    <div class="keys__scroll reveal">
+      <table>
+        <caption>Nagi のキー操作一覧</caption>
+        <thead>
+          <tr><th scope="col">キー</th><th scope="col">動作</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><kbd>⌥</kbd><kbd>Space</kbd></td><td>メモ入力ウインドウを開く／閉じる（設定で変更可）</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>Enter</kbd></td><td>指定フォルダに <code>ファイル名.md</code> として保存し、ウインドウを閉じる</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>S</kbd></td><td>書きかけを退避し、エディタを空にする</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>ウインドウを隠す。内容は消えず、次に開くと続きから</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>ファイル名欄では本文へ移動する（誤って保存しないため）</td></tr>
+          <tr><td><kbd>⌘</kbd><kbd>,</kbd></td><td>設定を開く</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="install-h">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <h2 id="install-h">インストール</h2>
+    </div>
+
+    <ol class="steps reveal" role="list">
+      <li>
+        <div>
+          <h3>ダウンロードして解凍する</h3>
+          <p>zip を展開すると <code>Nagi.app</code> が出てきます。</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3><code>Nagi.app</code> を <code>/Applications</code> に入れる</h3>
+          <p>「ログイン時に起動」は、ここに置いてあるときに安定して動きます。</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>初回だけ、右クリック →「開く」</h3>
+          <p>Nagi は ad-hoc 署名です。Apple の Developer ID による署名と公証をしていないため、ダブルクリックでは macOS が起動を止めます。一度「開く」を選べば、次からは普通に起動します。</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h3>保存先フォルダを選ぶ</h3>
+          <p>初回起動時に訊かれます。Obsidian の Vault や Claude Code の作業フォルダを指定してください。あとから設定（<kbd>⌘</kbd><kbd>,</kbd>）で変更できます。</p>
+        </div>
+      </li>
+    </ol>
+
+    <details class="build">
+      <summary>ソースからビルドする</summary>
+      <p>フル Xcode は不要で、Command Line Tools だけでビルドできます。</p>
+      <pre><code>git clone https://github.com/takenakasuji/nagi.git
+cd nagi
+./scripts/build-app.sh
+cp -R build/Nagi.app /Applications/</code></pre>
+    </details>
+
+    <p class="brew">Homebrew — <strong>準備中</strong>。<code>brew install --cask nagi</code> は将来対応します。</p>
+  </div>
+</section>
+
+<section class="limits" aria-labelledby="limits-h">
+  <div class="wrap">
+    <div class="section__head reveal">
+      <h2 id="limits-h">正直な制限</h2>
+      <p class="section__lead">先に知っておいてもらったほうがいいことです。</p>
+    </div>
+
+    <ul class="cards" role="list">
+      <li class="card reveal">
+        <h3>ホットキーの衝突は検出できないことがある</h3>
+        <p>macOS は、他のアプリが同じ組み合わせを握っていても登録を成功として返すことがあります。Alfred や Raycast と重なって反応しないときは、設定で別のキーに変えてください。</p>
+      </li>
+      <li class="card reveal">
+        <h3>ad-hoc 署名</h3>
+        <p>初回だけ右クリック →「開く」が必要です。Developer ID による署名と公証はしていません。</p>
+      </li>
+      <li class="card reveal">
+        <h3>非サンドボックス</h3>
+        <p>保存先はパスとして保持しています。App Store では配布していません。</p>
+      </li>
+      <li class="card reveal">
+        <h3>メニューバーのアイコンが見えないことがある</h3>
+        <p>ノッチ付きの MacBook でメニューバーが埋まっていると、後から起動したアプリのアイコンはノッチに押し出されて見えなくなります。macOS はそこに何も描かず、あふれた印も出しません。アイコンは存在していて、機能もしています（<kbd>⌥</kbd><kbd>Space</kbd> は効きます）。</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <a href="https://github.com/takenakasuji/nagi">GitHub</a>
+    <a href="https://github.com/takenakasuji/nagi/blob/main/LICENSE">MIT License</a>
+    <span>takenakasuji</span>
+  </div>
+</footer>
+
+</body>
+</html>
