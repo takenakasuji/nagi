@@ -20,6 +20,37 @@ public struct TextEdit: Equatable, Sendable {
 }
 
 public enum MarkdownLineEditing {
+    /// Return on a line that carries a list, task or quote marker.
+    ///
+    /// Returns nil whenever the ordinary newline is the right answer, so the
+    /// caller can simply fall through.
+    public static func newline(in text: String, caret: Int) -> TextEdit? {
+        let lines = MarkdownLines.split(text)
+        guard let index = MarkdownLines.indexOfLine(at: caret, in: lines) else { return nil }
+        let line = lines[index]
+        guard let prefix = BlockPrefix.parse(line.text) else { return nil }
+
+        // Caret still inside the marker: an ordinary newline just pushes the line
+        // down, which is what the user is asking for.
+        guard caret >= line.start + prefix.length else { return nil }
+
+        if prefix.hasEmptyContent(in: line.text) {
+            guard let column = outdentColumn(of: index, in: lines, prefix: prefix) else {
+                // Outermost level — Return here means "I am done with this list".
+                return TextEdit(range: line.start..<line.end, replacement: "", caret: line.start)
+            }
+            return rewritePrefix(of: line, prefix: prefix, to: column,
+                                 at: index, in: lines, caret: caret)
+        }
+
+        let continuation = BlockPrefix.text(kind: prefix.continuation, indent: prefix.indent)
+        return TextEdit(
+            range: caret..<caret,
+            replacement: "\n" + continuation,
+            caret: caret + 1 + continuation.utf16.count
+        )
+    }
+
     /// Tab (`outdent: false`) or ⇧Tab (`outdent: true`) on a list line.
     ///
     /// Returns nil when the line is not a list item, or when there is nowhere to

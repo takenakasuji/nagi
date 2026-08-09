@@ -53,3 +53,61 @@ struct MarkdownIndentTests {
                 == TextEdit(range: 4..<10, replacement: "  - [x] ", caret: 12))
     }
 }
+
+@Suite("Return によるリストの継続")
+struct MarkdownNewlineTests {
+    @Test("箇条書きは記号を引き継ぐ")
+    func continuesBullet() {
+        #expect(MarkdownLineEditing.newline(in: "- 来週リリース", caret: 8)
+                == TextEdit(range: 8..<8, replacement: "\n- ", caret: 11))
+    }
+
+    @Test("番号は進み、チェックは外れる")
+    func advancesNumberAndClearsCheck() {
+        #expect(MarkdownLineEditing.newline(in: "3. 三つ目", caret: 6)
+                == TextEdit(range: 6..<6, replacement: "\n4. ", caret: 10))
+        #expect(MarkdownLineEditing.newline(in: "- [x] 済み", caret: 8)
+                == TextEdit(range: 8..<8, replacement: "\n- [ ] ", caret: 15))
+    }
+
+    @Test("引用も引き継ぐ")
+    func continuesQuote() {
+        #expect(MarkdownLineEditing.newline(in: "> 持ち越し", caret: 6)
+                == TextEdit(range: 6..<6, replacement: "\n> ", caret: 9))
+    }
+
+    @Test("インデントは引き継がれる")
+    func keepsIndent() {
+        #expect(MarkdownLineEditing.newline(in: "  - 子", caret: 5)
+                == TextEdit(range: 5..<5, replacement: "\n  - ", caret: 10))
+    }
+
+    @Test("空の項目で改行するとリストを抜ける")
+    func emptyItemLeavesTheList() {
+        #expect(MarkdownLineEditing.newline(in: "- 親\n- ", caret: 6)
+                == TextEdit(range: 4..<6, replacement: "", caret: 4))
+    }
+
+    @Test("入れ子の空項目はまず 1 段戻る")
+    func emptyNestedItemStepsOutFirst() {
+        #expect(MarkdownLineEditing.newline(in: "- 親\n  - ", caret: 8)
+                == TextEdit(range: 4..<8, replacement: "- ", caret: 6))
+    }
+
+    @Test("記号より手前では普通に改行する")
+    func caretInsideMarkerFallsThrough() {
+        #expect(MarkdownLineEditing.newline(in: "- 項目", caret: 1) == nil)
+    }
+
+    @Test("リストでない行は何もしない")
+    func plainLineFallsThrough() {
+        #expect(MarkdownLineEditing.newline(in: "ただのメモ", caret: 5) == nil)
+        #expect(MarkdownLineEditing.newline(in: "", caret: 0) == nil)
+    }
+
+    @Test("行の途中で改行すると、後ろの文字が新しい項目になる")
+    func splittingAnItemCarriesTheMarker() {
+        #expect(MarkdownLineEditing.newline(in: "- 前半後半", caret: 4)
+                == TextEdit(range: 4..<4, replacement: "\n- ", caret: 7))
+    }
+}
