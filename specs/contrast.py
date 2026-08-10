@@ -96,6 +96,27 @@ CHECKS = [
 EDITOR_LIGHT_BG = "#F4F4F4"
 EDITOR_DARK_BG = "#2F2F2F"
 
+# サイトに持ち込んだエディタの色。入力窓のモックは材質の上、「流れ」の
+# サンプル面は --bg の上に載る。アプリの marker 色（#8A8F98 / #8D939C）は
+# **ここに無い** — 記号を後退させるために意図的に低コントラストで、サイトの
+# 4.5:1 を満たさないため、下の REJECTED に落として --label-secondary に
+# 置き換えている（docs/style.css の --md-* のコメントを参照）。
+CHECKS += [
+    ("ライト md 見出し on material", "#0A58CA", LIGHT_MATERIAL, 4.5),
+    ("ライト md コード on material", "#1F7A3D", LIGHT_MATERIAL, 4.5),
+    ("ライト md 引用   on material", "#666B72", LIGHT_MATERIAL, 4.5),
+    ("ライト md 本文   on material", "#1D1D1F", LIGHT_MATERIAL, 4.5),
+    ("ダーク md 見出し on material", "#6FA8FF", DARK_MATERIAL, 4.5),
+    ("ダーク md コード on material", "#7FCE8F", DARK_MATERIAL, 4.5),
+    ("ダーク md 引用   on material", "#9AA0A8", DARK_MATERIAL, 4.5),
+    ("ライト md 見出し on bg", "#0A58CA", "#FFFFFF", 4.5),
+    ("ライト md コード on bg", "#1F7A3D", "#FFFFFF", 4.5),
+    ("ライト md 引用   on bg", "#666B72", "#FFFFFF", 4.5),
+    ("ダーク md 見出し on bg", "#6FA8FF", "#1C1C1E", 4.5),
+    ("ダーク md コード on bg", "#7FCE8F", "#1C1C1E", 4.5),
+    ("ダーク md 引用   on bg", "#9AA0A8", "#1C1C1E", 4.5),
+]
+
 CHECKS += [
     ("エディタ 本文 (light)",   "#1C1C1E", EDITOR_LIGHT_BG, 4.5),
     ("エディタ 見出し (light)", "#0A58CA", EDITOR_LIGHT_BG, 4.5),
@@ -119,6 +140,10 @@ REJECTED = [
     # 却下した hover 案: ダークで accent を 8% ティントすると背景が青寄りになり、
     # 同色の accent 文字とのコントラストが 4.5 を割る（安静時が 4.51 しかないため）。
     ("accent 8% ティント上の accent 文字は不足", "#0A84FF", mix("#0A84FF", 0.08, "#16202B"), 4.5),
+    # アプリの marker 色をそのままサイトへ持ってくる案。エディタの中では
+    # 記号が後退するのが正しいが、サイトの受け入れ条件は「全テキスト 4.5:1」。
+    ("アプリの marker(light) は材質の上で不足", "#8A8F98", LIGHT_MATERIAL, 4.5),
+    ("アプリの marker(dark)  は材質の上で不足", "#8D939C", DARK_MATERIAL, 4.5),
 ]
 
 # コントラストでは測れないが記録しておく却下案:

@@ -1,7 +1,8 @@
 /* ==========================================================================
    Nagi 配布サイト
    1. トークン  2. リセット  3. タイポグラフィ  4. レイアウト
-   5. ヒーローと CTA  6. 入力窓のモック  7. フォーカスとモーション
+   5. ヒーローと CTA  6. Markdown の見本  7. 入力窓のモック
+   8. 流れ（メモ → AI → アウトプット）  9. フォーカスとモーション
    ========================================================================== */
 
 /* 1. トークン ------------------------------------------------------------ */
@@ -22,6 +23,17 @@
   --hero-from:       #EAF1F8;
   --hero-to:         #FFFFFF;
   --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .13);
+
+  /* エディタの着色。値は Sources/NagiUI/MarkdownTheme.swift と同じもので、
+     「見えているものがそのまま .md」という主張を見本でも成立させるため。
+     ただし markdown の記号（- ` > #）だけはアプリの marker 色を使わない:
+     アプリは記号を後退させるために意図的に低コントラストにしており
+     （light #8A8F98 は材質の上で 3.13:1、dark #8D939C は 4.22:1）、
+     サイト側の「全テキスト 4.5:1」を満たさない。--label-secondary に置き換える
+     （材質の上で 5.34 / 5.07）。specs/contrast.py がこの両方を測っている。 */
+  --md-heading:      #0A58CA;
+  --md-code:         #1F7A3D;
+  --md-quote:        #666B72;
 
   --font-ui:   -apple-system, BlinkMacSystemFont, "Hiragino Sans",
                "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
@@ -50,6 +62,10 @@
     --hero-from:       #16202B;
     --hero-to:         #1C1C1E;
     --shadow:          0 1.125rem 3rem rgba(0, 0, 0, .55);
+
+    --md-heading:      #6FA8FF;
+    --md-code:         #7FCE8F;
+    --md-quote:        #9AA0A8;
   }
 }
 
@@ -229,11 +245,13 @@ pre {
 
 .band pre { background: var(--bg); }
 
-.brew {
+.note {
   margin-top: 1.5rem;
   color: var(--label-secondary);
   font-size: var(--step--1);
 }
+
+.note + .note { margin-top: .625rem; }
 
 /* footer */
 
@@ -278,12 +296,6 @@ pre {
   margin-top: .75rem;
   font-size: clamp(1.125rem, 1rem + .6vw, 1.375rem);
   font-weight: 500;
-}
-
-.hero__sub {
-  max-width: 38rem;
-  margin: 1.25rem auto 0;
-  color: var(--label-secondary);
 }
 
 .hero__actions {
@@ -338,7 +350,17 @@ pre {
   }
 }
 
-/* 6. 入力窓のモック ------------------------------------------------------ */
+/* 6. Markdown の見本 ----------------------------------------------------- */
+
+/* 入力窓のモックと「流れ」のサンプルで共有する。改行は pre-wrap でそのまま
+   見せているので、HTML 側の中身は行頭から書くこと（インデントが左余白になる）。
+   nowrap にはしない: ズーム 200% で横に溢れる。 */
+.md-h { color: var(--md-heading); }
+.md-c { color: var(--md-code); }
+.md-q { color: var(--md-quote); }
+.md-m { color: var(--label-secondary); }
+
+/* 7. 入力窓のモック ------------------------------------------------------ */
 
 /* モックが乗る面。窓は .hero ではなく .showcase の中にあり、この面が単色だと
    backdrop-filter が視覚的に何もしない（ライトでは白地に白い窓になる）。
@@ -391,10 +413,12 @@ pre {
 
 .mock__body {
   min-height: 9rem;
-  padding: .625rem .75rem;
-  color: var(--label-secondary);
+  padding: .75rem .875rem;
+  color: var(--label);
   font-family: var(--font-mono);
   font-size: var(--step--1);
+  line-height: 1.8;
+  white-space: pre-wrap;
 }
 
 .mock__bar {
@@ -430,7 +454,106 @@ figcaption {
   text-align: center;
 }
 
-/* 7. フォーカスとモーション ---------------------------------------------- */
+/* 8. 流れ（メモ → AI → アウトプット） ------------------------------------ */
+
+.flow {
+  --flow-gap: 2.75rem;
+  /* 4 行ぶん + 上下の余白。3 つの面の高さを揃えるためにここで決め打ちする
+     — 揃っていないと見出しの頭が段ごとにずれ、矢印を刺す高さも決まらない。 */
+  --flow-sample-h: 8.5rem;
+  display: grid;
+  gap: var(--flow-gap);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.flow__step { position: relative; }
+
+/* 段の間の矢印。CSS で描いた山形（正方形を 45° 回して 2 辺だけ残す）。
+   回転しても中心は動かないので、回す前の箱を中央に置けばよい。
+
+   色に --accent を使わないこと。設計書のとおりこの青は「主アクション」の
+   意味に固定してあり、装飾に流用すると意味が薄まる。 */
+.flow__step + .flow__step::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--flow-sample-h) / 2);     /* サンプル面の中央 */
+  inset-inline-start: calc(var(--flow-gap) / -2);
+  width: .5rem;
+  height: .5rem;
+  margin: -.25rem 0 0 -.25rem;
+  border-top: 2px solid var(--label-secondary);
+  border-right: 2px solid var(--label-secondary);
+  transform: rotate(45deg);
+}
+
+.flow__sample {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-height: var(--flow-sample-h);
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--separator);
+  border-radius: .75rem;
+  background: var(--bg);
+}
+
+.flow__text {
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* 「Nagi はここ」の札。面の上辺に半分かぶせるので、本文とは絶対にぶつからない
+   （中身の長さで位置を決めていない）。--bg で縁を抜く。 */
+.flow__badge {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .125rem .625rem;
+  border: 1px solid var(--label);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: var(--step--1);
+  font-weight: 600;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+/* 直下の子だけを狙う。`.flow p` にすると面の中の「Nagi はここ」の札まで
+   掴んで（詳細度で .flow__badge に勝つ）、余白 8px ぶん下にずれ、色も
+   secondary に落ちる。 */
+.flow__step > h3 { margin-top: 1.5rem; font-size: var(--step-1); }
+.flow__step > p  { margin-top: .5rem; color: var(--label-secondary); }
+
+.flow__note {
+  max-width: 44rem;
+  margin-top: clamp(2rem, 4vw, 2.75rem);
+  color: var(--label-secondary);
+}
+
+@media (max-width: 52rem) {
+  .flow {
+    --flow-gap: 2.5rem;
+    /* 縦並びでは面の高さを揃える理由がなくなる。8.5rem のままだと 2 行の
+       「AI が作業する」が空白だらけになるので、内容なりに縮ませる。 */
+    --flow-sample-h: 5.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  /* 縦並びでは矢印も下向きに。上辺の中央に置き、45° ではなく 135° 回す。 */
+  .flow__step + .flow__step::before {
+    top: calc(var(--flow-gap) / -2);
+    inset-inline-start: 50%;
+    transform: rotate(135deg);
+  }
+}
+
+/* 9. フォーカスとモーション ---------------------------------------------- */
 
 :focus-visible {
   outline: 3px solid var(--accent);
@@ -452,9 +575,8 @@ figcaption {
   .hero__mark    { animation-delay: 0s; }
   .hero h1       { animation-delay: .06s; }
   .hero__lead    { animation-delay: .12s; }
-  .hero__sub     { animation-delay: .18s; }
-  .hero__actions { animation-delay: .24s; }
-  .hero__meta    { animation-delay: .30s; }
+  .hero__actions { animation-delay: .18s; }
+  .hero__meta    { animation-delay: .24s; }
 }
 
 /* スクロール駆動の演出は入れない。
