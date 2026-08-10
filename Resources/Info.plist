@@ -10,6 +10,9 @@
 	<string>com.devx-tech.nagi</string>
 	<key>CFBundleExecutable</key>
 	<string>Nagi</string>
+	<!-- AppIcon.icns, drawn by scripts/make-icon.swift from the site's mark. -->
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

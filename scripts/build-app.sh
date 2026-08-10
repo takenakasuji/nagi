@@ -37,6 +37,15 @@ cp "${BINARY}" "${CONTENTS}/MacOS/Nagi"
 cp Resources/Info.plist "${CONTENTS}/Info.plist"
 printf 'APPL????' > "${CONTENTS}/PkgInfo"
 
+# The icon is committed rather than drawn here: scripts/make-icon.swift needs
+# only the Command Line Tools too, but it changes about as often as the logo
+# does, and a missing one should fail loudly rather than produce a blank app.
+if [ ! -f Resources/AppIcon.icns ]; then
+    echo "error: Resources/AppIcon.icns is missing — run ./scripts/make-icon.swift" >&2
+    exit 1
+fi
+cp Resources/AppIcon.icns "${CONTENTS}/Resources/AppIcon.icns"
+
 # Ad-hoc signature. Enough for local use: it gives the bundle a stable identity
 # so macOS remembers permissions between launches. Replace with a Developer ID
 # for distribution.
