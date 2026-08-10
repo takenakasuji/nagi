@@ -140,6 +140,15 @@ section { padding-block: clamp(3.5rem, 9vw, 6.5rem); }
   background: var(--bg);
 }
 
+/* アイコンは意味を運ばない補強なので --accent を使わない。このサイトでは
+   accent は「押せる」の意味に固定してある。 */
+.card__icon {
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-bottom: .875rem;
+  color: var(--label-secondary);
+}
+
 .card h3 { margin-bottom: .625rem; }
 .card p  { color: var(--label-secondary); }
 
