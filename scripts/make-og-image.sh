@@ -33,8 +33,12 @@ cat > "$SRC" <<'HTML'
 <style>
   html, body { margin: 0; padding: 0; }
   body {
+    box-sizing: border-box;
     width: 1200px;
     height: 630px;
+    /* リードが横いっぱいになると端で切れて見える。余白を先に確保しておき、
+       文言が伸びたときは溢れるのではなく折り返させる。 */
+    padding-inline: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -49,7 +53,9 @@ cat > "$SRC" <<'HTML'
   .mark { width: 104px; height: 104px; color: #0060DF; }
   h1 { margin: 0; font-size: 96px; font-weight: 700; letter-spacing: .01em; line-height: 1; }
   h1 span { font-size: 46px; font-weight: 500; color: #68686D; }
-  .lead { margin: 0; font-size: 42px; font-weight: 500; }
+  /* 36px。42px だと「AI 時代のマークダウンエディター。雑に書いて、速く貯める。」が
+     全角約 28.5 文字 = 1197px となり、1200px の版面に対して余白が消える。 */
+  .lead { margin: 0; font-size: 36px; font-weight: 500; text-align: center; }
   .meta { margin: 0; font-size: 26px; font-weight: 400; color: #68686D; }
 </style>
 <body>
@@ -60,7 +66,7 @@ cat > "$SRC" <<'HTML'
     <path d="M4 32h18"/>
   </svg>
   <h1>Nagi<span>（凪）</span></h1>
-  <p class="lead">AI 時代のメモ帳。雑に書いて、速く貯める。</p>
+  <p class="lead">AI 時代のマークダウンエディター。雑に書いて、速く貯める。</p>
   <p class="meta">macOS 14 Sonoma 以降 · 無料 · MIT ライセンス</p>
 </body>
 </html>

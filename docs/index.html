@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nagi（凪）— AI 時代のメモ帳</title>
-<meta name="description" content="macOS のメニューバーに常駐するクイックキャプチャアプリ。ホットキーで窓を出し、思考を止めずに書き、指定フォルダに .md を吐く。">
+<title>Nagi（凪）— AI 時代のマークダウンエディター</title>
+<meta name="description" content="思考を、素早く記録する。macOS のメニューバーに常駐するクイックキャプチャアプリ。雑に書いて .md で貯め、整理はあとから AI に任せる。">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://takenakasuji.github.io/nagi/">
-<meta property="og:title" content="Nagi（凪）— AI 時代のメモ帳">
-<meta property="og:description" content="雑に書いて、速く貯める。macOS のメニューバー常駐クイックキャプチャ。">
+<meta property="og:title" content="Nagi（凪）— AI 時代のマークダウンエディター">
+<meta property="og:description" content="思考を、素早く記録する。雑に書いて、速く貯める。">
 <meta property="og:image" content="https://takenakasuji.github.io/nagi/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Nagi（凪）— AI 時代のメモ帳。雑に書いて、速く貯める。">
+<meta property="og:image:alt" content="Nagi（凪）— AI 時代のマークダウンエディター。雑に書いて、速く貯める。">
 <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
@@ -32,8 +32,7 @@
     </svg>
 
     <h1>Nagi<span class="hero__ruby">（凪）</span></h1>
-    <p class="hero__lead">AI 時代のメモ帳。雑に書いて、速く貯める。</p>
-    <p class="hero__sub">ホットキーで窓を出し、思考を止めずに書き、指定フォルダに <code>.md</code> を吐く。整理・リネーム・構造化は、あとから Claude Code や Obsidian に任せる。</p>
+    <p class="hero__lead">AI 時代のマークダウンエディター。雑に書いて、速く貯める。</p>
 
     <div class="hero__actions">
       <a class="btn btn--primary" href="https://github.com/takenakasuji/nagi/releases/latest">ダウンロード</a>
@@ -49,7 +48,7 @@
 <section class="showcase" aria-labelledby="showcase-h">
   <div class="wrap">
     <div class="section__head">
-      <h2 id="showcase-h">押すと、出る</h2>
+      <h2 id="showcase-h">思考を、素早く記録する</h2>
       <p class="section__lead">どのアプリの上にいても <kbd>⌥</kbd><kbd>Space</kbd>。画面の中央に窓が開いて、カーソルはもう本文にある。</p>
     </div>
 
@@ -61,10 +60,16 @@
             <path d="M9.5 1.5H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V5.5z"/>
             <path d="M9.5 1.5v4h4M5.5 8.5h5M5.5 11h5"/>
           </svg>
-          <span>会議メモ<span class="mock__hint">.md</span></span>
+          <span>打ち合わせ<span class="mock__hint">.md</span></span>
         </div>
         <div class="mock__rule"></div>
-        <div class="mock__body">雑に書く。整理はあとで Claude に任せる。</div>
+        <!-- white-space: pre-wrap で改行をそのまま見せているため、この中身は
+             行頭から書く。インデントすると本文の左に空白が入る。 -->
+        <div class="mock__body"><span class="md-h"># 打ち合わせ</span>
+<span class="md-m">- </span>資料まだ
+<span class="md-m">- </span>請求書は <span class="md-m">`</span><span class="md-c">田中さん</span><span class="md-m">`</span> に確認
+
+<span class="md-m">&gt; </span><span class="md-q">検索を先に出す？</span></div>
         <div class="mock__rule"></div>
         <div class="mock__bar">
           <span class="mock__chip">
@@ -88,28 +93,79 @@
           <span class="mock__chip mock__chip--primary">保存 ⌘↩</span>
         </div>
       </div>
-      <figcaption>ファイル名、本文、下のツールバー。これだけです。実際の窓はもっと縦に長く、書く場所が広くとってあります。</figcaption>
+      <figcaption>見出しもコードもリンクも、書いた瞬間に色がつく。プレビュー画面はない — 見えているものが、そのまま保存される <code>.md</code> です。実際の窓はもっと縦に長く、書く場所が広くとってあります。</figcaption>
     </figure>
   </div>
 </section>
 
-<section class="band" aria-labelledby="principles-h">
+<section class="band" aria-labelledby="flow-h">
   <div class="wrap">
     <div class="section__head">
-      <h2 id="principles-h">しないことが、3 つある</h2>
-      <p class="section__lead">機能を足さないことで速さを守っている。</p>
+      <h2 id="flow-h">AI 時代の、ノートの取り方</h2>
+      <p class="section__lead">きれいに書いてから貯めるのではなく、雑に貯めてから整えてもらう。書く速さと、読める形。その両方を人間が一度にやる必要は、もうない。</p>
+    </div>
+
+    <ol class="flow" role="list">
+      <li class="flow__step">
+        <div class="flow__sample">
+          <p class="flow__badge">
+            <svg viewBox="0 0 48 48" width="13" height="13" fill="none" stroke="currentColor"
+                 stroke-width="5" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 16h24a6 6 0 1 0-6-6"/>
+              <path d="M4 24h30a6 6 0 1 1-6 6"/>
+              <path d="M4 32h18"/>
+            </svg>
+            Nagi はここ
+          </p>
+          <div class="flow__text">打ち合わせ 資料まだ
+請求書 田中さんに確認
+検索を先に出す？</div>
+        </div>
+        <h3>思考のメモ</h3>
+        <p>思いついた順に、雑に書く。命名も分類も整形も考えない。止まらないことだけが大事。</p>
+      </li>
+
+      <li class="flow__step">
+        <div class="flow__sample">
+          <div class="flow__text"><span class="md-m">$ </span>claude
+<span class="md-m">&gt; </span>notes/ を整理して</div>
+        </div>
+        <h3>AI が作業する</h3>
+        <p>貯まった <code>.md</code> を Claude Code に読ませる。要約、分類、リネーム、統合、清書。これまで手を動かしていたところ。</p>
+      </li>
+
+      <li class="flow__step">
+        <div class="flow__sample">
+          <div class="flow__text"><span class="md-h"># 打ち合わせ 8/11</span>
+<span class="md-h">## TODO</span>
+<span class="md-m">- </span>資料を作る
+<span class="md-m">- </span>請求書を確認</div>
+        </div>
+        <h3>整理されたアウトプット</h3>
+        <p>議事録、TODO、記事、仕様書。雑に投げ込んだメモが、読める形になって返ってくる。</p>
+      </li>
+    </ol>
+
+    <p class="flow__note">Nagi が引き受けるのは、この<strong>入り口だけ</strong>です。整理・リネーム・構造化はあとから Claude Code や Obsidian に任せる。だから、開いた瞬間から書ける。</p>
+  </div>
+</section>
+
+<section aria-labelledby="principles-h">
+  <div class="wrap">
+    <div class="section__head">
+      <h2 id="principles-h">雑に書いても、失われない</h2>
+      <p class="section__lead">速く書けることと、あとで困らないこと。この 2 つは両立します。</p>
     </div>
 
     <ul class="cards" role="list">
       <li class="card">
         <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
              stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.3"/>
-          <path d="M6.6 1.9v2.7M9.4 1.9v2.7M6.6 11.4v2.7M9.4 11.4v2.7M1.9 6.6h2.7M1.9 9.4h2.7M11.4 6.6h2.7M11.4 9.4h2.7"/>
+          <path d="M11.9 6.9h-.76A4.8 4.8 0 1 0 6.5 12.9h5.4a3 3 0 0 0 0-6z"/>
           <path d="M2.6 2.6 13.4 13.4"/>
         </svg>
-        <h3>アプリに AI は入っていない</h3>
-        <p>要約も分類もタグ付けもしない。責務は「捕まえて、置く」だけ。整理はあとから Claude Code や Obsidian に任せる。だから待ち時間がなく、オフラインでも書ける。</p>
+        <h3>ローカルファースト</h3>
+        <p>通信しない。書いたものは手元のフォルダに <code>.md</code> として置かれるだけで、クラウドにもデータベースにも預けない。オフラインでも書けるし、同期を待つ時間もない。</p>
       </li>
       <li class="card">
         <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -133,7 +189,7 @@
   </div>
 </section>
 
-<section aria-labelledby="keys-h">
+<section class="band" aria-labelledby="keys-h">
   <div class="wrap">
     <div class="section__head">
       <h2 id="keys-h">キーボードだけで完結する</h2>
@@ -151,7 +207,8 @@
           <tr><td><kbd>⌘</kbd><kbd>Enter</kbd> / <kbd>⌘</kbd><kbd>S</kbd></td><td>指定フォルダに <code>ファイル名.md</code> として保存し、ウインドウを閉じる</td></tr>
           <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>S</kbd></td><td>書きかけを退避し、エディタを空にする</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>ウインドウを隠す。内容は消えず、次に開くと続きから</td></tr>
-          <tr><td><kbd>Enter</kbd></td><td>ファイル名欄では本文へ移動する（誤って保存しないため）</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>ファイル名欄では本文へ移動する（誤って保存しないため）。本文のリスト行では次の項目を続ける</td></tr>
+          <tr><td><kbd>Tab</kbd> / <kbd>⇧</kbd><kbd>Tab</kbd></td><td>本文のリスト行を入れ子にする／戻す</td></tr>
           <tr><td><kbd>⌘</kbd><kbd>,</kbd></td><td>設定を開く</td></tr>
           <tr><td><kbd>⌘</kbd><kbd>W</kbd> / <kbd>Esc</kbd></td><td>設定ウインドウを閉じる</td></tr>
         </tbody>
@@ -160,7 +217,7 @@
   </div>
 </section>
 
-<section class="band" aria-labelledby="install-h">
+<section aria-labelledby="install-h">
   <div class="wrap">
     <div class="section__head">
       <h2 id="install-h">インストール</h2>
@@ -170,7 +227,7 @@
       <li>
         <div>
           <h3>ダウンロードして解凍する</h3>
-          <p>zip を展開すると <code>Nagi.app</code> が出てきます。</p>
+          <p>zip を展開すると <code>Nagi.app</code> が出てきます。Apple Silicon / Intel 共通の universal ビルドです。</p>
         </div>
       </li>
       <li>
@@ -203,56 +260,8 @@ cd nagi
 cp -R build/Nagi.app /Applications/</code></pre>
     </details>
 
-    <p class="brew">Homebrew — <strong>準備中</strong>。<code>brew install --cask nagi</code> は将来対応します。</p>
-  </div>
-</section>
-
-<section class="limits" aria-labelledby="limits-h">
-  <div class="wrap">
-    <div class="section__head">
-      <h2 id="limits-h">正直な制限</h2>
-      <p class="section__lead">先に知っておいてもらったほうがいいことです。</p>
-    </div>
-
-    <ul class="cards" role="list">
-      <li class="card">
-        <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-             stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.4"/>
-          <path d="M6.3 6.2a1.75 1.75 0 1 1 1.75 1.9v1.1M8.05 11.6v.05"/>
-        </svg>
-        <h3>ホットキーの衝突は検出できないことがある</h3>
-        <p>macOS は、他のアプリが同じ組み合わせを握っていても登録を成功として返すことがあります。Alfred や Raycast と重なって反応しないときは、設定で別のキーに変えてください。</p>
-      </li>
-      <li class="card">
-        <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-             stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8 1.9 13.4 3.6v4.1c0 3.1-2.2 5.4-5.4 6.4-3.2-1-5.4-3.3-5.4-6.4V3.6z"/>
-          <path d="M2.8 2.8 13.2 13.2"/>
-        </svg>
-        <h3>ad-hoc 署名</h3>
-        <p>Developer ID による署名と公証をしていないため、初回だけシステム設定 → プライバシーとセキュリティで「このまま開く」を押す必要があります。macOS 15 Sequoia 以降、右クリック →「開く」では許可できません。</p>
-      </li>
-      <li class="card">
-        <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-             stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="2" y="7.4" width="9" height="6.4" rx="1.5"/>
-          <path d="M6.5 7.4V4.9a2.6 2.6 0 0 1 5.2 0v1.3"/>
-        </svg>
-        <h3>非サンドボックス</h3>
-        <p>保存先はパスとして保持しています。App Store では配布していません。</p>
-      </li>
-      <li class="card">
-        <svg class="card__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-             stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="1.6" y="2.6" width="12.8" height="10.8" rx="1.6"/>
-          <path d="M1.6 6h4.6M9.8 6h4.6"/>
-          <path d="M6.2 2.6v2.2a1.2 1.2 0 0 0 1.2 1.2h1.2a1.2 1.2 0 0 0 1.2-1.2V2.6"/>
-        </svg>
-        <h3>メニューバーのアイコンが見えないことがある</h3>
-        <p>ノッチ付きの MacBook でメニューバーが埋まっていると、後から起動したアプリのアイコンはノッチに押し出されて見えなくなります。macOS はそこに何も描かず、あふれた印も出しません。アイコンは存在していて、機能もしています（<kbd>⌥</kbd><kbd>Space</kbd> は効きます）。</p>
-      </li>
-    </ul>
+    <p class="note">Homebrew — <strong>準備中</strong>。<code>brew install --cask nagi</code> は将来対応します。</p>
+    <p class="note">うまく動かないときは <a href="https://github.com/takenakasuji/nagi#readme">README</a> に、ホットキーが他のアプリと衝突する場合とメニューバーのアイコンが見えない場合の対処をまとめてあります。</p>
   </div>
 </section>
 
