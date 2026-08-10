@@ -153,6 +153,17 @@ public struct CaptureView: View {
     private var toolbar: some View {
         HStack(spacing: 10) {
             Button {
+                env.showSettings()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.accessoryBar)
+            .help("設定 ⌘,")
+            // .help() is a tooltip, not a label — VoiceOver needs this.
+            .accessibilityLabel("設定")
+
+            Button {
                 ui.isStashListVisible.toggle()
             } label: {
                 Label(
@@ -169,17 +180,6 @@ public struct CaptureView: View {
                 StashListView(session: session)
                     .frame(width: 340, height: 260)
             }
-
-            Button {
-                env.showSettings()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 11))
-            }
-            .buttonStyle(.accessoryBar)
-            .help("設定 ⌘,")
-            // .help() is a tooltip, not a label — VoiceOver needs this.
-            .accessibilityLabel("設定")
 
             if let message = ui.message {
                 messageView(message)
