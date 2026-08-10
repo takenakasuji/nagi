@@ -108,7 +108,7 @@ h3 { font-size: var(--step-1); }
 p { text-wrap: pretty; }
 
 code, kbd, pre { font-family: var(--font-mono); }
-/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.brew）の中に
+/* 本文（17px）の中では少し小さく見せたいが、既に 14px の面（pre、.note）の中に
    入ると em が掛かって 13.1px まで落ちる。max() で 14px を床にする。 */
 code { font-size: max(var(--step--1), .9375em); }
 
@@ -154,6 +154,15 @@ section { padding-block: clamp(3.5rem, 9vw, 6.5rem); }
   border: 1px solid var(--separator);
   border-radius: 1rem;
   background: var(--bg);
+}
+
+/* アイコンは意味を運ばない補強なので --accent を使わない。このサイトでは
+   accent は「押せる」の意味に固定してある。 */
+.card__icon {
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-bottom: .875rem;
+  color: var(--label-secondary);
 }
 
 .card h3 { margin-bottom: .625rem; }
