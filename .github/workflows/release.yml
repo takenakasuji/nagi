@@ -1,0 +1,90 @@
+name: Release
+
+# ビルド済み Nagi.app を Releases に添付する。
+# タグ push が通常の経路。workflow_dispatch は、既に切ってあるタグへ
+# アセットだけを後から足すための口（v0.1.0 がこれに当たる）。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'アセットを添付するタグ (例: v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macos-latest は予告なく上がる。配布物を作る場所なので意識的に固定する。
+    # Swift 6 (swift-tools-version:6.0) が要るので Xcode 16 系が既定の世代を選ぶ。
+    runs-on: macos-15
+
+    steps:
+      # workflow_dispatch では github.ref_name が起動元ブランチ (main) になる。
+      # 入力を先に見ることで、タグ push と手動実行を同じ経路に合流させる。
+      - name: タグ名を決める
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "name=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      # ワークフロー定義は起動元ブランチから、ソースツリーはタグから取る。
+      # 新しいワークフローで古いソースをビルドできる、というのがこの分離の狙い。
+      - name: ソースを取得する
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+
+      # タグだけ上げて Info.plist を忘れる事故は、配布物では気づきにくい。
+      # 出来上がった .app を開くまで分からないので、入口で止める。
+      - name: タグと Info.plist のバージョンを照合する
+        id: version
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          version="${TAG#v}"
+          plist="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+          if [ "$version" != "$plist" ]; then
+            echo "::error::タグ ${TAG} と Info.plist の ${plist} が食い違っています"
+            exit 1
+          fi
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+      # ウインドウサーバを要求する RealAppKit の 30 本は runner では当てにならない。
+      # 残る 160 本は headless で走る。
+      - name: テストする
+        run: ./scripts/test.sh --skip "RealAppKit"
+
+      - name: ビルドする
+        run: ./scripts/build-app.sh
+
+      # zip -r ではなく ditto。実測では今の bundle なら zip -r でも署名は往復する
+      # （単一実行ファイルで、シンボリックリンクもネストしたコードも無いため）。
+      # それでも ditto を使うのは、シンボリックリンクと拡張属性を保つ Apple 純正の
+      # 経路であり、bundle が育った日に黙って壊れないから。署名が壊れると
+      # Gatekeeper の文言が「開発元を確認できません」から「壊れているため開けません」
+      # に変わり、配布サイトに書いた「このまま開く」手順では復帰できなくなる。
+      - name: zip にまとめる
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: ditto -c -k --sequesterRsrc --keepParent build/Nagi.app "Nagi-${VERSION}.zip"
+
+      # リリース本文は自動生成しない（手で書いたノートを上書きする事故のほうが高くつく）。
+      # ただしタグ push でリリースがまだ無い場合だけは、器がないと添付できないので作る。
+      - name: リリースに添付する
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          asset="Nagi-${VERSION}.zip"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$asset" --clobber
+          else
+            gh release create "$TAG" "$asset" --title "$TAG" --generate-notes
+          fi
