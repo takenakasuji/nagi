@@ -1,0 +1,18 @@
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# scripts/build-app.sh output
+build/
+
+# macOS
+.DS_Store
+
+# Claude Code: 個人設定と、それ自身が git リポジトリである clone 済みスキル
+.claude/settings.local.json
+.claude/skills/
+
+# ブレインストーミングの視覚コンパニオンと、
+# subagent-driven-development の進捗台帳（どちらもローカル作業用）
+.superpowers/

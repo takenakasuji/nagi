@@ -1,0 +1,116 @@
+import Foundation
+import Testing
+@testable import NagiCore
+
+@Suite("Tab によるリストの階層操作")
+struct MarkdownIndentTests {
+    @Test("Tab は直前の同階層項目の本文開始位置に揃える")
+    func indentAlignsToPrecedingSibling() {
+        // "- 親" は 3 コード単位、2 行目は 4 から始まる
+        #expect(MarkdownLineEditing.indent(in: "- 親\n- 子にする", caret: 6, outdent: false)
+                == .edit(TextEdit(range: 4..<6, replacement: "  - ", caret: 8)))
+    }
+
+    @Test("番号付きの親には 3 桁で揃える")
+    func indentAlignsToOrderedParent() {
+        // "1. 親" の本文は 3 桁目から始まるので、子も 3 桁
+        #expect(MarkdownLineEditing.indent(in: "1. 親\n- 子にする", caret: 7, outdent: false)
+                == .edit(TextEdit(range: 5..<7, replacement: "   - ", caret: 10)))
+    }
+
+    /// `notAList` と区別できることが肝。ここを一緒くたに「何も返さない」にすると、
+    /// 呼び出し側は `NSTextView` の既定に落とすしかなくなり、`- 最初` で Tab を
+    /// 押した瞬間に目に見えないタブ文字が `.md` に混ざる。
+    @Test("リストの 1 行目は入れ子にできないが、リスト行ではある")
+    func firstItemCannotIndent() {
+        #expect(MarkdownLineEditing.indent(in: "- 最初", caret: 4, outdent: false) == .nowhereToMove)
+    }
+
+    @Test("⇧Tab は親の位置まで戻す")
+    func outdentReturnsToParentColumn() {
+        #expect(MarkdownLineEditing.indent(in: "- 親\n  - 子", caret: 8, outdent: true)
+                == .edit(TextEdit(range: 4..<8, replacement: "- ", caret: 6)))
+    }
+
+    @Test("最上位では ⇧Tab は何もしないが、リスト行ではある")
+    func outdentAtTopLevelDoesNothing() {
+        #expect(MarkdownLineEditing.indent(in: "- 最上位", caret: 5, outdent: true) == .nowhereToMove)
+    }
+
+    @Test("引用とただの本文は Tab の対象外")
+    func onlyListLinesRespondToTab() {
+        #expect(MarkdownLineEditing.indent(in: "> 引用\n> 続き", caret: 8, outdent: false) == .notAList)
+        #expect(MarkdownLineEditing.indent(in: "ただの本文", caret: 5, outdent: false) == .notAList)
+    }
+
+    @Test("階層が変わった番号付き項目は、その行だけ番号を直す")
+    func renumbersOnlyTheMovedLine() {
+        // 2 行目を 1 段下げると、新しい階層では最初の項目なので "1."
+        #expect(MarkdownLineEditing.indent(in: "1. 一つ目\n2. 二つ目\n3. 三つ目", caret: 13, outdent: false)
+                == .edit(TextEdit(range: 7..<10, replacement: "   1. ", caret: 16)))
+    }
+
+    @Test("チェック済みの状態は階層を変えても保たれる")
+    func indentKeepsTheTickedState() {
+        #expect(MarkdownLineEditing.indent(in: "- 親\n- [x] 済み", caret: 10, outdent: false)
+                == .edit(TextEdit(range: 4..<10, replacement: "  - [x] ", caret: 12)))
+    }
+}
+
+@Suite("Return によるリストの継続")
+struct MarkdownNewlineTests {
+    @Test("箇条書きは記号を引き継ぐ")
+    func continuesBullet() {
+        #expect(MarkdownLineEditing.newline(in: "- 来週リリース", caret: 8)
+                == TextEdit(range: 8..<8, replacement: "\n- ", caret: 11))
+    }
+
+    @Test("番号は進み、チェックは外れる")
+    func advancesNumberAndClearsCheck() {
+        #expect(MarkdownLineEditing.newline(in: "3. 三つ目", caret: 6)
+                == TextEdit(range: 6..<6, replacement: "\n4. ", caret: 10))
+        #expect(MarkdownLineEditing.newline(in: "- [x] 済み", caret: 8)
+                == TextEdit(range: 8..<8, replacement: "\n- [ ] ", caret: 15))
+    }
+
+    @Test("引用も引き継ぐ")
+    func continuesQuote() {
+        #expect(MarkdownLineEditing.newline(in: "> 持ち越し", caret: 6)
+                == TextEdit(range: 6..<6, replacement: "\n> ", caret: 9))
+    }
+
+    @Test("インデントは引き継がれる")
+    func keepsIndent() {
+        #expect(MarkdownLineEditing.newline(in: "  - 子", caret: 5)
+                == TextEdit(range: 5..<5, replacement: "\n  - ", caret: 10))
+    }
+
+    @Test("空の項目で改行するとリストを抜ける")
+    func emptyItemLeavesTheList() {
+        #expect(MarkdownLineEditing.newline(in: "- 親\n- ", caret: 6)
+                == TextEdit(range: 4..<6, replacement: "", caret: 4))
+    }
+
+    @Test("入れ子の空項目はまず 1 段戻る")
+    func emptyNestedItemStepsOutFirst() {
+        #expect(MarkdownLineEditing.newline(in: "- 親\n  - ", caret: 8)
+                == TextEdit(range: 4..<8, replacement: "- ", caret: 6))
+    }
+
+    @Test("記号より手前では普通に改行する")
+    func caretInsideMarkerFallsThrough() {
+        #expect(MarkdownLineEditing.newline(in: "- 項目", caret: 1) == nil)
+    }
+
+    @Test("リストでない行は何もしない")
+    func plainLineFallsThrough() {
+        #expect(MarkdownLineEditing.newline(in: "ただのメモ", caret: 5) == nil)
+        #expect(MarkdownLineEditing.newline(in: "", caret: 0) == nil)
+    }
+
+    @Test("行の途中で改行すると、後ろの文字が新しい項目になる")
+    func splittingAnItemCarriesTheMarker() {
+        #expect(MarkdownLineEditing.newline(in: "- 前半後半", caret: 4)
+                == TextEdit(range: 4..<4, replacement: "\n- ", caret: 7))
+    }
+}
