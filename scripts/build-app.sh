@@ -6,16 +6,22 @@
 # registration, and a code signature so macOS will let it register a hotkey.
 # This assembles that bundle around the built binary.
 #
-#   ./scripts/build-app.sh            # release build into ./build/Nagi.app
-#   ./scripts/build-app.sh --debug    # faster, unoptimized
+#   ./scripts/build-app.sh              # release build into ./build/Nagi.app
+#   ./scripts/build-app.sh --debug      # faster, unoptimized
+#   ./scripts/build-app.sh --universal  # arm64 + x86_64, for distribution
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 CONFIGURATION="release"
-if [ "${1:-}" = "--debug" ]; then
-    CONFIGURATION="debug"
-fi
+UNIVERSAL=0
+for arg in "$@"; do
+    case "${arg}" in
+        --debug)     CONFIGURATION="debug" ;;
+        --universal) UNIVERSAL=1 ;;
+        *) echo "error: unknown option ${arg}" >&2; exit 1 ;;
+    esac
+done
 
 APP_DIR="build/Nagi.app"
 CONTENTS="${APP_DIR}/Contents"
@@ -29,11 +35,42 @@ if [ ! -f "${BINARY}" ]; then
     exit 1
 fi
 
+# The x86_64 slice, for distribution. `swift build --arch arm64 --arch x86_64`
+# would be the obvious way, but SwiftPM hands that to xcbuild, which only ships
+# with a full Xcode — it would break the "Command Line Tools are enough" premise
+# this whole script exists to keep. Building the slice separately with -target
+# and joining the two with lipo needs nothing Xcode-only.
+#
+# The deployment target is read from Info.plist rather than written twice: the
+# arm64 slice takes it from Package.swift's `platforms:`, and a disagreement
+# between the two slices would only show up on someone else's Intel Mac.
+if [ "${UNIVERSAL}" = "1" ]; then
+    MIN_MACOS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' Resources/Info.plist)"
+    X86_ARGS=(
+        -c "${CONFIGURATION}"
+        --scratch-path .build/x86_64
+        -Xswiftc -target -Xswiftc "x86_64-apple-macos${MIN_MACOS}"
+    )
+
+    echo "==> Building x86_64 slice (macOS ${MIN_MACOS})"
+    swift build "${X86_ARGS[@]}"
+
+    X86_BINARY="$(swift build "${X86_ARGS[@]}" --show-bin-path)/Nagi"
+    if [ ! -f "${X86_BINARY}" ]; then
+        echo "error: x86_64 binary not found at ${X86_BINARY}" >&2
+        exit 1
+    fi
+fi
+
 echo "==> Assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
 mkdir -p "${CONTENTS}/MacOS" "${CONTENTS}/Resources"
 
-cp "${BINARY}" "${CONTENTS}/MacOS/Nagi"
+if [ "${UNIVERSAL}" = "1" ]; then
+    lipo -create "${BINARY}" "${X86_BINARY}" -output "${CONTENTS}/MacOS/Nagi"
+else
+    cp "${BINARY}" "${CONTENTS}/MacOS/Nagi"
+fi
 cp Resources/Info.plist "${CONTENTS}/Info.plist"
 printf 'APPL????' > "${CONTENTS}/PkgInfo"
 

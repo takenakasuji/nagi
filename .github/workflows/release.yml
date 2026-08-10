@@ -36,7 +36,7 @@ jobs:
       # ワークフロー定義は起動元ブランチから、ソースツリーはタグから取る。
       # 新しいワークフローで古いソースをビルドできる、というのがこの分離の狙い。
       - name: ソースを取得する
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.tag.outputs.name }}
 
@@ -60,8 +60,24 @@ jobs:
       - name: テストする
         run: ./scripts/test.sh --skip "RealAppKit"
 
+      # runner は Apple Silicon なので、既定では arm64 単独の .app が出来る。
+      # 配布サイトは「macOS 14 Sonoma 以降」と書いていて Sonoma は Intel Mac も
+      # 対象なので、そのままでは起動できない人に配ることになる。--universal は
+      # x86_64 スライスを別に建てて lipo で束ねる（ローカルの既定は速い arm64 のまま）。
       - name: ビルドする
-        run: ./scripts/build-app.sh
+        run: ./scripts/build-app.sh --universal
+
+      - name: 両アーキテクチャが入っているか確かめる
+        run: |
+          archs="$(lipo -archs build/Nagi.app/Contents/MacOS/Nagi)"
+          echo "archs: ${archs}"
+          for want in arm64 x86_64; do
+            case " ${archs} " in
+              *" ${want} "*) ;;
+              *) echo "::error::${want} スライスが入っていません (archs: ${archs})"; exit 1 ;;
+            esac
+          done
+          codesign --verify --verbose=2 build/Nagi.app
 
       # zip -r ではなく ditto。実測では今の bundle なら zip -r でも署名は往復する
       # （単一実行ファイルで、シンボリックリンクもネストしたコードも無いため）。

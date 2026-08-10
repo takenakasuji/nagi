@@ -1,7 +1,7 @@
 # ビルド済み Nagi.app の配布 設計書
 
 - 日付: 2026-08-10
-- 状態: 承認済み（実装待ち）
+- 状態: 実装済み
 - 配布先: https://github.com/takenakasuji/nagi/releases
 
 ## 何を作るか
@@ -86,30 +86,61 @@ bundle が育った日（フレームワークを抱える、ヘルパーを持�
 | 同上、実行ビットと `Info.plist` | `-rwxr-xr-x` のまま、`CFBundleShortVersionString` = `0.1.0` を読める |
 | `zip -r` → `unzip` 後の署名 | 同じく valid（上記のとおり、この bundle では壊れない） |
 | ad-hoc 署名 `Nagi.app` の `spctl -a -vv` | `rejected`（exit 3）。サイトの Gatekeeper 回避手順は実際に必要 |
-| zip のサイズ | 553 KB |
+| zip のサイズ | arm64 のみ 543 KB / universal 約 1 MB |
+| `swift build --arch arm64 --arch x86_64`（CLT のみ） | `error: xcbuild executable ... does not exist`。使えない |
+| `-Xswiftc -target x86_64-apple-macos14.0`（CLT のみ） | 通る。30.7s、`lipo -archs` = `x86_64`、`vtool` の minos = 14.0 |
+| `lipo -create` した bundle | `x86_64 arm64`、1.8 MB、ad-hoc 署名も `codesign --verify` も通過 |
+| `build-app.sh` の引数（既定 / `--debug` / `--universal` / 順序入替 / 未知） | 既定は arm64 のまま、`--universal --debug` は両方適用、`--bogus` は exit 1 |
+| runner（フル Xcode）での `scripts/test.sh --skip "RealAppKit"` | **160 tests passed, 0.206s。** 下の「既知のリスク」は杞憂だった |
+| CI 全体 | 56 秒で完走。`Nagi-0.1.0.zip` が v0.1.0 に付き、落として `codesign --verify` も通過 |
+
+### 既知のリスク（解消済み）
+
+`scripts/test.sh` をフル Xcode 環境で走らせたことがなかった。開発機は Command Line Tools
+のみで、スクリプトの 2 つの分岐はどちらもその前提で書かれている。runner では
+2 つ目の `-disable-cross-import-overlays` が**成立して付く**ので、そこが怪しいと見ていた。
+実際には 160 本が 0.206 秒で通った。オーバーレイの API を使っていないという前提が正しかった。
 
 ### runner を固定する理由
 
 `macos-latest` は予告なく上がる。リリース成果物を作る場所としては
 `macos-15` に固定し、上げるときは意識的に上げる。
 
-## 既知のリスク
+## universal ビルド
 
-**`scripts/test.sh` はフル Xcode 環境で走らせたことがない。** 開発機は Command Line Tools
-のみで、スクリプトの 2 つの分岐はどちらもその前提で書かれている。runner（フル Xcode）では
-1 つ目（`Testing.framework` の検索パス追加）は成立せず素の `swift test` に落ちる（意図どおり）が、
-2 つ目の `-disable-cross-import-overlays` は**成立して付く**。
-このオーバーレイの API は使っていないので無害なはずだが、実測はしていない。
-最初の CI 実行が検証になる。落ちたらそのとき直す。
+**最初の実装は arm64 単独の .app を配ってしまった。** macos-15 runner は Apple Silicon
+なので既定ではそうなる。一方サイトは「macOS 14 Sonoma 以降」と書いていて、Sonoma は
+Intel Mac も対象なので、起動できない人に配っていたことになる。
+公開済みアセットを `lipo -archs` にかけて気づいた。
 
-## 手順（実装後）
+`scripts/build-app.sh --universal` を足し、CI だけがそれを渡す。ローカルの既定は
+速い arm64 のまま（開発中に x86_64 を建てる意味がない）。
 
-1. ワークフローを main にマージする
-2. Actions から `Release` を `tag=v0.1.0` で手動実行する
-3. v0.1.0 に `Nagi-0.1.0.zip` が付き、サイトのダウンロードボタンが機能し始める
-4. v0.1.0 のリリース本文を手で書く（現在空）
+**`swift build --arch arm64 --arch x86_64` は使えない。** SwiftPM がそれを xcbuild に投げ、
+xcbuild はフル Xcode にしか無い。「Command Line Tools だけでビルドできる」という
+このプロジェクトの前提が壊れる。代わりに `-Xswiftc -target -Xswiftc x86_64-apple-macos<min>`
+で x86_64 スライスを別 scratch path（`.build/x86_64`）に建て、`lipo -create` で束ねる。
+これは CLT だけで通る。
+
+deployment target は `Resources/Info.plist` の `LSMinimumSystemVersion` から読む。
+二重に書かない理由は、arm64 スライスが `Package.swift` の `platforms:` から取るため、
+食い違っても**他人の Intel Mac でしか露見しない**から。
+
+CI には `lipo -archs` に両スライスが並ぶことを確かめるステップを入れた。
+runner の世代が変わってビルドが片肺に戻ったとき、静かに配り続けないようにする。
+
+## 手順
+
+1. ~~ワークフローを main にマージする~~ 済
+2. ~~Actions から `Release` を `tag=v0.1.0` で手動実行する~~ 済
+3. ~~v0.1.0 に `Nagi-0.1.0.zip` が付き、サイトのダウンロードボタンが機能し始める~~ 済
+4. universal 対応を入れて `tag=v0.1.0` で再実行し、arm64 単独のアセットを差し替える
+   （`gh release upload --clobber` が同名を置き換える）
 
 ## 積み残し
 
+- **v0.1.0 のリリース本文が空**。手で書く
 - README の「インストール」はソースビルドしか書いていない。
   ダウンロード導線を足すかどうかは別途判断する
+- **x86_64 スライスが実際に起動するところは未検証**。Intel 機がないため、
+  `lipo` と `codesign` が通ることまでしか確かめていない
