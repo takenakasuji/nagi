@@ -29,6 +29,18 @@ AI 時代のメモ帳。**雑に書いて、速く貯める**ためのメニュ�
 
 ## インストール
 
+[Releases](https://github.com/takenakasuji/nagi/releases/latest) から zip を落として展開し、
+`Nagi.app` を `/Applications` に入れる。macOS 14 Sonoma 以降。
+arm64 / x86_64 の universal ビルドなので Apple Silicon でも Intel でも動く。
+
+ad-hoc 署名のため、**初回だけ**起動が止められる。一度開こうとしてから
+**システム設定 → プライバシーとセキュリティ**を開き、下のほうに出る
+「"Nagi" は開発元を確認できないため、使用がブロックされました」の横の
+**「このまま開く」**を押す。次からは普通に起動する。
+（macOS 14 では右クリック →「開く」でも許可できるが、15 Sequoia 以降はこの方法が使えない。）
+
+ソースからビルドしてもよい。
+
 ```bash
 ./scripts/build-app.sh && cp -R build/Nagi.app /Applications/
 ```
@@ -54,6 +66,21 @@ Dock にはアイコンが出ない（`LSUIElement`）。
 `scripts/test.sh` は swift-testing の `Testing.framework` を探してフラグを補う。
 Command Line Tools 環境では `_Testing_Foundation` のモジュールが同梱されていないため、
 クロスインポートオーバーレイの自動読み込みも切っている（このオーバーレイの API は使っていない）。
+
+### リリース
+
+`Resources/Info.plist` の `CFBundleShortVersionString` を上げ、同じ番号のタグを push する。
+
+```bash
+git tag -a v0.1.1 -m "..." && git push origin v0.1.1
+```
+
+あとは GitHub Actions がテスト・ビルド・zip 化・Releases への添付までやる。
+タグと `Info.plist` が食い違っていたら、ビルドに入る前に落とす。
+
+配布物は universal ビルド（`./scripts/build-app.sh --universal`）。
+`swift build --arch` はフル Xcode を要求するので使わず、`-Xswiftc -target` で
+x86_64 スライスを別に建てて `lipo` で束ねている。ローカルの既定は速い arm64 のまま。
 
 ### 構成
 

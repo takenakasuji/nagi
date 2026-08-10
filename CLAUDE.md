@@ -42,6 +42,14 @@ This project is built with plain SwiftPM so it works with **only the Command Lin
 
 Likewise `swift build` alone only produces a bare executable. A menu-bar app needs a real bundle — `LSUIElement`, a bundle ID, an ad-hoc signature — which `scripts/build-app.sh` assembles around the binary.
 
+### Releasing
+
+Bump `CFBundleShortVersionString` in `Resources/Info.plist`, then push a tag of the same number. `.github/workflows/release.yml` tests, builds, zips with `ditto`, and attaches the zip to the GitHub release. A tag that disagrees with the plist fails before the build — the two are duplicated by necessity and the mismatch would otherwise only surface in someone's Downloads folder.
+
+**What is distributed is a universal build (`./scripts/build-app.sh --universal`), and the CI asserts both slices are present.** The runner is Apple Silicon, so the default build ships arm64 only — which the site's "macOS 14 Sonoma 以降" promise does not match, because Sonoma runs on Intel Macs too. `swift build --arch arm64 --arch x86_64` is not the way: SwiftPM hands it to xcbuild, which only exists in a full Xcode, and the CLT-only premise above dies with it. The x86_64 slice is built separately with `-Xswiftc -target` (deployment target read from `Info.plist`, not written twice) and joined with `lipo`. Local builds stay arm64 — the flag is for CI.
+
+**`workflow_dispatch` against an old tag builds that tag's tooling.** `scripts/build-app.sh` lives in the same tree as the source, so pointing the workflow at an old tag gets the old script. This has already bitten once: the pre-`--universal` script took its options as `if [ "${1:-}" = "--debug" ]` and discarded anything else silently, so `--universal` did nothing, the build step *passed*, and an arm64-only bundle came out. The `lipo -archs` check is what caught it. Options are validated now, but the general trap remains — a workflow step that depends on a new script feature is a no-op on tags that predate it.
+
 ## Architecture
 
 Three targets, side effects pushed to the edge:
