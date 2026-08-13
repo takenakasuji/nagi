@@ -40,6 +40,17 @@ public final class CaptureUIState {
     /// closure was installed.
     public var isBodyComposing = false
 
+    /// True while an input method is holding an unconfirmed reading in the
+    /// filename field.
+    ///
+    /// The `.md` hint reads this to step aside during a conversion: the hint's
+    /// position is measured from the filename *binding*, which the reading never
+    /// reaches, so mid-conversion the hint would sit on top of the text being
+    /// typed. The field editor is SwiftUI's, so unlike the body there is no
+    /// `setMarkedText` override to report from — `CapturePanel` reads the state
+    /// as events pass through it (`reportFilenameComposition()`).
+    public var isFilenameComposing = false
+
     /// Short-lived feedback shown under the editor (e.g. "名前を入れてください").
     public var message: Message?
 

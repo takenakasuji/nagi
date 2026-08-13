@@ -12,6 +12,9 @@ final class CapturePanel: NSPanel {
     /// true consumes the event.
     var onCommand: ((CaptureCommand) -> Void)?
 
+    /// Reports whether the filename field is holding an uncommitted reading.
+    var onFilenameCompositionChange: ((Bool) -> Void)?
+
     /// Claims ⌘Return / ⌘⇧S / ⌘, before the focused `NSTextView` sees them, and
     /// steps out of Escape's way while an IME conversion is in flight.
     ///
@@ -37,9 +40,46 @@ final class CapturePanel: NSPanel {
 
         if let command = CaptureKeyBinding.command(for: event) {
             onCommand?(command)
+            reportFilenameComposition()
             return true
         }
-        return super.performKeyEquivalent(with: event)
+        let consumed = super.performKeyEquivalent(with: event)
+        if consumed { reportFilenameComposition() }
+        return consumed
+    }
+
+    /// Every key event passes through here unless the key equivalent stage
+    /// consumed it first — `performKeyEquivalent` reports on those paths.
+    override func sendEvent(_ event: NSEvent) {
+        super.sendEvent(event)
+        switch event.type {
+        case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            reportFilenameComposition()
+        default:
+            break
+        }
+    }
+
+    /// Publishes whether the filename field is holding an uncommitted reading.
+    ///
+    /// This exists because the `.md` hint's position is computed from the
+    /// filename *binding*, which a conversion never updates — `setMarkedText`
+    /// posts no change (measured for the body; the field editor behaves the
+    /// same), so the reading sits on screen while the binding still holds the
+    /// pre-conversion text, and the hint would overlap it. The body's
+    /// `NagiTextView` reports its own conversions by overriding `setMarkedText`;
+    /// the filename field cannot — its field editor is SwiftUI's — so the panel
+    /// reads the state at the only observation points it has: events passing
+    /// through, and `show()`. That is enough because `NSTextInputContext`
+    /// handles events synchronously (it answers "consumed?" with a Bool), so by
+    /// the time `sendEvent` returns, the marked text is settled.
+    ///
+    /// The body is excluded by type, not by claiming the first responder must be
+    /// a field editor: a conversion in the body must not blink the filename's
+    /// hint, whose position is still correct.
+    func reportFilenameComposition() {
+        let composing = isComposing && !(firstResponder is NagiTextView)
+        onFilenameCompositionChange?(composing)
     }
 
     /// Whether the focused view is holding text an input method has not committed
@@ -91,6 +131,12 @@ public final class CaptureWindowController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
 
+        // The composition flag can be stale here: the panel only reports when an
+        // event passes through it, and a conversion that ended while the window
+        // was hidden produced no event this panel saw. Re-read reality now, or
+        // the `.md` hint stays needlessly hidden until the first keystroke.
+        panel.reportFilenameComposition()
+
         // Land the caret in the body so the user can type immediately; the
         // request carries a fresh token so it re-fires even though the view was
         // never torn down.
@@ -131,6 +177,14 @@ public final class CaptureWindowController: NSObject {
             case .stash: env?.stash()
             case .settings: env?.showSettings()
             }
+        }
+
+        // The guard is not an optimisation: the panel reports after every key
+        // and mouse-down, and an unguarded `@Observable` write would re-render
+        // `CaptureView` on each of them.
+        panel.onFilenameCompositionChange = { [weak env] composing in
+            guard let env, env.ui.isFilenameComposing != composing else { return }
+            env.ui.isFilenameComposing = composing
         }
 
         let root = CaptureView(

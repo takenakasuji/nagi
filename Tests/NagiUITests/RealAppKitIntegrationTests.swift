@@ -901,6 +901,178 @@ struct RealAppKitIntegrationTests {
         #expect(env.session.body == "漢字")
     }
 
+    /// ファイル名欄の `.md` ヒントを退かせる信号。フィールドエディタは SwiftUI の
+    /// 私有物なので、本文の `NagiTextView` のように `setMarkedText` を override して
+    /// 報せることはできない——観測点はイベントがパネルを通る瞬間しかない。
+    /// `NSTextInputContext.handleEvent` は同期（消費したかを Bool で返す）なので、
+    /// `sendEvent` が戻った時点で marked text の状態は確定している。
+    @Test("ファイル名欄の変換の開始と確定がパネルから報される")
+    func filenameCompositionIsReportedByThePanel() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        var reported: [Bool] = []
+        panel.onFilenameCompositionChange = { reported.append($0) }
+
+        guard let field = firstDescendant(NSTextField.self, in: panel.contentView!) else {
+            Issue.record("ファイル名の NSTextField が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(field))
+        guard let fieldEditor = panel.firstResponder as? NSTextView else {
+            Issue.record("フィールドエディタが first responder になっていない")
+            return
+        }
+
+        fieldEditor.setMarkedText("かんじ",
+                                  selectedRange: NSRange(location: 3, length: 0),
+                                  replacementRange: NSRange(location: 0, length: 0))
+
+        // 変換中の Escape は key equivalent の段が降りるので、`sendEvent` まで
+        // 流れる——そこを通ったあとに「変換中」が報されていること。
+        dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
+                 through: panel)
+        #expect(reported.last == true)
+
+        // 確定。次のイベントの通過で解除が報される。矢印キーなのは、確定後の
+        // Escape は隠しボタンに取られて窓を隠してしまうから。
+        fieldEditor.insertText("漢字", replacementRange: fieldEditor.markedRange())
+        #expect(fieldEditor.hasMarkedText() == false)
+        dispatch(keyEvent(characters: "\u{F702}", keyCode: 123, modifiers: []),
+                 through: panel)
+        #expect(reported.last == false)
+    }
+
+    /// 本文で変換していても `.md` ヒントは退かせない。ファイル名は変わっていない
+    /// のだから、ヒントの位置は正しいまま——退かせると本文の変換のたびに
+    /// ヒントが瞬く。first responder が `NagiTextView` かどうかで見分ける。
+    @Test("本文の変換はファイル名欄の変換として報されない")
+    func bodyCompositionIsNotReportedAsFilenameComposition() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        var reported: [Bool] = []
+        panel.onFilenameCompositionChange = { reported.append($0) }
+
+        guard let textView = firstDescendant(NagiTextView.self, in: panel.contentView!) else {
+            Issue.record("NagiTextView が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(textView))
+        textView.setMarkedText("かんじ",
+                               selectedRange: NSRange(location: 3, length: 0),
+                               replacementRange: NSRange(location: 0, length: 0))
+
+        dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
+                 through: panel)
+
+        // 本文の変換そのものは `isBodyComposing` の経路が拾う。こちらの信号が
+        // 立っていないことが本題。
+        #expect(env.ui.isBodyComposing)
+        #expect(!reported.contains(true))
+    }
+
+    /// ⌘Return は key equivalent の段で消費され、`sendEvent` には届かない——
+    /// その経路でも変換状態は報されること。ここが漏れると、変換中に ⌘Return で
+    /// 保存したときだけ状態が古いまま残る。
+    @Test("key equivalent で消費された ⌘Return でもファイル名の変換状態は報される")
+    func consumedKeyEquivalentStillReportsFilenameComposition() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let panel = makeHostedPanel(env: env, onRequestHide: {})
+        defer { panel.orderOut(nil) }
+
+        var reported: [Bool] = []
+        panel.onFilenameCompositionChange = { reported.append($0) }
+
+        guard let field = firstDescendant(NSTextField.self, in: panel.contentView!) else {
+            Issue.record("ファイル名の NSTextField が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(field))
+        guard let fieldEditor = panel.firstResponder as? NSTextView else {
+            Issue.record("フィールドエディタが first responder になっていない")
+            return
+        }
+        fieldEditor.setMarkedText("かんじ",
+                                  selectedRange: NSRange(location: 3, length: 0),
+                                  replacementRange: NSRange(location: 0, length: 0))
+
+        let consumed = dispatch(keyEvent(characters: "\r", keyCode: 36, modifiers: [.command]),
+                                through: panel)
+
+        #expect(consumed)
+        #expect(reported.last == true)
+    }
+
+    /// 上の信号が実配線で `CaptureUIState` まで届くこと。`makePanel()` の配線を
+    /// 通すため、パネルはコントローラ経由で作る。後半は取り残しの検査:
+    /// 変換中に窓が隠れ、隠れている間に確定が済むと、イベントが無いので
+    /// 「変換中」が古いまま残る——再表示がそれを現状に合わせ直すこと。
+    @Test("ファイル名欄の変換状態が CaptureUIState まで届く")
+    func filenameCompositionReachesTheUIState() {
+        bootstrapAppKit()
+
+        let (env, cleanUp) = makeScratchEnvironment()
+        defer { cleanUp() }
+
+        let controller = CaptureWindowController(env: env)
+        env.start(window: controller,
+                  hotkey: HotkeyManager(onPress: {}),
+                  settings: SettingsWindowController(env: env))
+        controller.show()
+        defer { controller.hide() }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        guard let panel = NSApp.windows.compactMap({ $0 as? CapturePanel })
+            .first(where: { $0.delegate === controller })
+        else {
+            Issue.record("コントローラの CapturePanel が見つからない")
+            return
+        }
+        guard let field = firstDescendant(NSTextField.self, in: panel.contentView!) else {
+            Issue.record("ファイル名の NSTextField が view tree に無い")
+            return
+        }
+        #expect(panel.makeFirstResponder(field))
+        guard let fieldEditor = panel.firstResponder as? NSTextView else {
+            Issue.record("フィールドエディタが first responder になっていない")
+            return
+        }
+
+        #expect(env.ui.isFilenameComposing == false)
+        fieldEditor.setMarkedText("かんじ",
+                                  selectedRange: NSRange(location: 3, length: 0),
+                                  replacementRange: NSRange(location: 0, length: 0))
+        dispatch(keyEvent(characters: "\u{1B}", keyCode: 53, modifiers: []),
+                 through: panel)
+        #expect(env.ui.isFilenameComposing)
+
+        // 変換中のまま隠れ、隠れている間に確定した。イベントの通過が無いので
+        // 状態は古いまま——それで正しい。
+        controller.hide()
+        fieldEditor.insertText("漢字", replacementRange: fieldEditor.markedRange())
+        #expect(env.ui.isFilenameComposing)
+
+        // 再表示が現状に合わせ直す。ここが無いと、次のキーを打つまで
+        // `.md` ヒントが理由なく消えたままになる。
+        controller.show()
+        #expect(env.ui.isFilenameComposing == false)
+    }
+
     /// 変換中の ⌘⇧S。`CapturePanel.performKeyEquivalent` は responder chain より先に
     /// 走るので、変換中でもここに届く（`本文の変換中は Escape が入力メソッドに渡り、
     /// 窓は閉じない` がその配送を実測している）。`session.stash()` は本文を退避一覧へ
