@@ -95,10 +95,18 @@ public struct CaptureView: View {
     }
 
     /// ".md" trailing the typed name, in the field's own coordinate space.
+    ///
+    /// Not while a conversion is in flight: the reading on screen never reaches
+    /// the binding (`setMarkedText` posts no change — the body's measured rule,
+    /// and the field editor behaves the same), so `typedWidth` would place the
+    /// hint at the pre-conversion width, under the text being typed. Same
+    /// decision as the body placeholder: while the input method holds the text,
+    /// step aside. `CapturePanel.reportFilenameComposition()` supplies the flag.
     private var markdownHint: some View {
         GeometryReader { proxy in
             let x = Self.typedWidth(session.filename)
             if let suffix = NoteWriter.markdownSuffix(for: session.filename),
+               !ui.isFilenameComposing,
                x > 0, x + Self.suffixWidth <= proxy.size.width {
                 Text(suffix)
                     .font(Self.nameFont)
